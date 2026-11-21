@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same branch cancels an in-flight run for it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Generates expo-env.d.ts, which is gitignored but required by tsconfig.
+      # Without it, tsc cannot resolve the CSS module imports. This also
+      # rewrites tsconfig.json in place, but is idempotent.
+      - name: Generate Expo types
+        run: npx expo customize tsconfig.json
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Runs even when the typecheck fails, so one run reports both.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint

@@ -95,11 +95,27 @@ npx tsc --noEmit
 ```
 
 ```bash
+npx expo lint
+```
+
+```bash
 npx expo export --platform ios
 ```
 
-The second command bundles the app the same way a real build does, so it
+The last command bundles the app the same way a real build does, so it
 catches import and asset errors without needing a Mac.
+
+## CI
+
+`.github/workflows/ci.yml` runs the typecheck and the linter on every pull
+request and on every push to `main`. Lint runs even when the typecheck fails,
+so a single run reports both.
+
+The workflow runs `npx expo customize tsconfig.json` before `tsc`. That step
+generates `expo-env.d.ts`, which is gitignored but which `tsconfig.json`
+includes — without it `tsc` cannot resolve the CSS module imports in
+`src/constants/theme.ts` and `src/components/animated-icon.web.tsx`. Run the
+same command locally if a fresh clone fails to typecheck.
 
 ## Notes
 
