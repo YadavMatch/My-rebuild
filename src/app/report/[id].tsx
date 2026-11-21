@@ -1,0 +1,80 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+
+import { PressableScale } from '@/components/pressable-scale';
+import { ThemedText } from '@/components/themed-text';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { getProfileSync } from '@/services';
+import { useDecisions } from '@/store/decisions';
+import { REPORT_REASONS, type ReportReason } from '@/types';
+
+export default function ReportScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const theme = useTheme();
+  const { report } = useDecisions();
+  const [submitting, setSubmitting] = useState(false);
+
+  const profile = getProfileSync(id);
+  const name = profile?.name ?? 'this person';
+
+  function submit(reason: ReportReason) {
+    if (submitting) {
+      return;
+    }
+    setSubmitting(true);
+    report(id, reason)
+      .catch(() => {})
+      .finally(() => {
+        // Dismissing either way: a failed report must not look like it
+        // vanished, but nor should the person be trapped in the sheet. A real
+        // implementation retries in the background.
+        router.back();
+      });
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <ThemedText type="small" themeColor="textSecondary">
+        Reporting {name}. They will be blocked straight away and our moderation team will review
+        the report. They are not told who reported them.
+      </ThemedText>
+
+      <View style={styles.reasons}>
+        {REPORT_REASONS.map((reason) => (
+          <PressableScale
+            key={reason}
+            onPress={() => submit(reason)}
+            disabled={submitting}
+            accessibilityRole="button"
+            accessibilityLabel={`Report for ${reason}`}
+            style={[
+              styles.reason,
+              { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+            ]}>
+            <ThemedText>{reason}</ThemedText>
+          </PressableScale>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  reasons: {
+    gap: Spacing.two,
+  },
+  reason: {
+    minHeight: 52,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+});

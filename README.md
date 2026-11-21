@@ -1,10 +1,50 @@
-# My Rebuild
+# NearMatch
 
-An iOS app built with [Expo](https://expo.dev) (SDK 58) and shipped with
-[EAS](https://docs.expo.dev/eas/) — Expo Application Services.
+A dating app for iOS, built with [Expo](https://expo.dev) (SDK 58) and shipped
+with [EAS](https://docs.expo.dev/eas/) — Expo Application Services.
 
 Stack: Expo Router (file-based navigation), React Native 0.88, React 19.3,
-TypeScript, `@expo/ui` native components.
+TypeScript, Reanimated 4 and Gesture Handler v3.
+
+## What works
+
+Running on seed data, no backend yet:
+
+| Screen | What it does |
+| --- | --- |
+| Welcome | First launch. Drifting orbs, rising hearts, staggered entrance. |
+| Discover | Swipe deck, plus Pass / Message / Like buttons. |
+| Top Picks | Segment beside Discover. Empty by design — see below. |
+| Likes | Everyone you have liked. |
+| Premium | Benefits page. No purchase flow; billing is not wired up. |
+| Messages | Conversations, newest first. |
+| Chat | A thread per match, with a working composer. |
+| Settings | Membership, Privacy & Legal, Danger Zone. |
+| Profile detail | Bio, interests, prompts, plus report and block. |
+
+Swipes, matches and messages persist across launches via AsyncStorage.
+
+Every action is reachable by tapping a labelled control, not only by
+swiping — a swipe-only deck is unusable with a screen reader or with limited
+motor control.
+
+`APP_NAME` in `src/constants/app.ts` is the wordmark. The tab bar is custom
+rather than `NativeTabs`, because the design puts an elevated circular button
+in the middle of the bar and a real UITabBar cannot do that.
+
+## What is deliberately empty or honest
+
+These screens tell the truth about what the app cannot do yet, rather than
+faking it:
+
+- **Top Picks** shows an empty state. There is no ranking model, and showing
+  the same deck under a different heading would misrepresent the app.
+- **Premium** has no buy button, because there is no billing.
+- **Welcome** says all three buttons just open the app, because there is no auth.
+- **Edit profile** says bio edits are not saved.
+- **Legal pages** are labelled placeholders. Invented legal copy would be
+  worse than none: a privacy policy has to describe what the app really does
+  with data, and for a dating app it is reviewed before the store accepts it.
 
 ## Getting started
 
@@ -22,15 +62,50 @@ Expo Go on an iPhone.
 ## Project layout
 
 ```
-src/app/            screens — each file is a route (expo-router)
-  _layout.tsx       root layout, theme provider, tab navigator
-  index.tsx         Home tab
-  explore.tsx       Explore tab
-src/components/     reusable UI; *.web.tsx files are web-only variants
-src/constants/      design tokens — colors, spacing, fonts
-src/hooks/          shared hooks
-assets/             icons, splash, images
+src/app/               screens — each file is a route (expo-router)
+  _layout.tsx          root: gesture root, theme, decisions provider, stack
+  (tabs)/index.tsx     Discover — the swipe deck
+  (tabs)/matches.tsx   Matches list
+  (tabs)/profile.tsx   Your own profile
+  profile/[id].tsx     Someone else's profile, with report and block
+  chat/[id].tsx        A conversation
+  report/[id].tsx      Report reasons, as a native form sheet
+src/components/        reusable UI; *.web.tsx files are web-only variants
+src/services/          the data layer — swap this for a real backend
+src/store/             likes, passes, blocks and reports (persisted)
+src/data/              seed profiles and conversations (JSON)
+src/constants/theme.ts design tokens — colours, spacing, radii, fonts
+assets/                icons and splash
 ```
+
+## Where the data comes from
+
+Screens never import `src/data/*.json`. They go through `src/services`, which
+is the single seam a real backend plugs into — rewrite those function bodies
+against Supabase, Firebase or your own API and the screens keep working,
+because the return types do not change.
+
+The seed data is committed to the repo. That is fine for development and
+wrong for production: a public repository is not a place for anyone's profile
+or messages. Real user data belongs in a database with row-level access
+control before anybody but you uses this app.
+
+Two more things the mock layer only pretends to do, which a backend must
+really do:
+
+- **Blocking.** A client-side block only hides someone from your screen. Until
+  it is enforced server-side, the other person can still see and message you.
+- **Reporting.** Reports currently log and resolve. They have to reach a
+  moderation queue that a human reads.
+
+One thing the mock cannot do on web: `Alert` is a no-op in
+react-native-web, so the "it's a match" dialog does not appear in a browser.
+It works on iOS. Worth replacing with a real match screen before launch —
+it is the best moment in a dating app and a system alert undersells it.
+
+Profile photos are generated gradients with an initial rather than stock
+portraits — using photographs of real people as fake profiles is a bad idea.
+Swap `ProfilePhoto` for `expo-image` once profiles carry uploads.
 
 ## EAS builds
 
@@ -128,9 +203,9 @@ does, so it catches a broken import that typecheck and lint both miss.
 
 `Typecheck & lint` runs `npx expo customize tsconfig.json` before `tsc`. That
 generates `expo-env.d.ts`, which is gitignored but which `tsconfig.json`
-includes — without it `tsc` cannot resolve the CSS module imports in
-`src/constants/theme.ts` and `src/components/animated-icon.web.tsx`. Run the
-same command locally if a fresh clone fails to typecheck.
+includes — without it `tsc` cannot resolve the CSS module import in
+`src/constants/theme.ts`. Run the same command locally if a fresh clone fails
+to typecheck.
 
 `expo-doctor` reaches the npm registry and Expo's API to compare installed
 package versions against the SDK, so it can turn red after an upstream
@@ -146,3 +221,9 @@ only change when the dependency is bumped.
   it is permanent once the app is on the App Store.
 - `appVersionSource` is `remote`, so EAS owns the build number and increments
   it on each production build.
+- Typed routes are on. The route types in `.expo/types` are generated by the
+  dev server, so after adding or renaming a screen, run `npx expo start` once
+  or `tsc` will still be checking against the old routes.
+- Before the App Store will take a dating app it needs working report and
+  block (both are built), plus an account-deletion path and an age gate —
+  neither of which exists yet.

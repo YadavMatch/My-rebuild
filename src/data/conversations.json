@@ -1,0 +1,28 @@
+[
+  {
+    "id": "c1",
+    "profileId": "p1",
+    "matchedAt": "2026-11-21T09:12:00.000Z",
+    "messages": [
+      { "id": "c1-m1", "conversationId": "c1", "senderId": "p1", "text": "Hey! We matched 🎉 Chai or coffee — pick a side.", "sentAt": "2026-11-21T09:40:00.000Z" }
+    ]
+  },
+  {
+    "id": "c2",
+    "profileId": "p5",
+    "matchedAt": "2026-11-20T09:30:00.000Z",
+    "messages": [
+      { "id": "c2-m1", "conversationId": "c2", "senderId": "me", "text": "Your prints are genuinely lovely. Do you sell them anywhere?", "sentAt": "2026-11-20T10:02:00.000Z" },
+      { "id": "c2-m2", "conversationId": "c2", "senderId": "p5", "text": "Thank you! I do a market stall once a month and sell about four of them.", "sentAt": "2026-11-20T11:15:00.000Z" },
+      { "id": "c2-m3", "conversationId": "c2", "senderId": "p5", "text": "The other forty live in a drawer, judging me.", "sentAt": "2026-11-20T11:16:00.000Z" }
+    ]
+  },
+  {
+    "id": "c3",
+    "profileId": "p8",
+    "matchedAt": "2026-11-19T21:05:00.000Z",
+    "messages": [
+      { "id": "c3-m1", "conversationId": "c3", "senderId": "p8", "text": "Night shift, so I am wide awake and the crossword is beating me.", "sentAt": "2026-11-20T02:40:00.000Z" }
+    ]
+  }
+]
