@@ -76,11 +76,16 @@ export type Conversation = {
  */
 export type Decision = 'like' | 'pass' | 'superlike';
 
-/** One entry in the undo stack behind the rewind button. */
+/** One entry in the decision history. */
 export type DecisionRecord = {
   profileId: string;
   decision: Decision;
+  /** ISO 8601. Used to count likes against the daily cap. */
+  at: string;
 };
+
+/** Likes a free account may send per day. Premium lifts it entirely. */
+export const FREE_DAILY_LIKES = 6;
 
 /**
  * Reasons someone can report a profile.

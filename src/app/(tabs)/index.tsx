@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
@@ -13,7 +13,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { createConversation, fetchDeck } from '@/services';
 import { useDecisions } from '@/store/decisions';
-import type { Decision, Profile } from '@/types';
+import { FREE_DAILY_LIKES, type Decision, type Profile } from '@/types';
 
 const SEGMENTS = ['Discover', 'Top Picks'] as const;
 type Segment = (typeof SEGMENTS)[number];
@@ -21,7 +21,7 @@ type Segment = (typeof SEGMENTS)[number];
 export default function DiscoverScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { excludedIds, state, like, pass } = useDecisions();
+  const { excludedIds, state, like, pass, canLike, likesRemaining } = useDecisions();
   const [segment, setSegment] = useState<Segment>('Discover');
   const [deck, setDeck] = useState<Profile[] | undefined>(undefined);
 
@@ -56,6 +56,20 @@ export default function DiscoverScreen() {
 
   const handleDecision = useCallback(
     (profile: Profile, decision: Decision) => {
+      // Passes are never capped — the limit exists to slow down likes, and
+      // blocking passes would trap people on a card they do not want.
+      if (decision !== 'pass' && !canLike) {
+        Alert.alert(
+          "You're out of likes for today",
+          `Free accounts get ${FREE_DAILY_LIKES} likes a day. Your likes come back tomorrow, or Premium removes the limit.`,
+          [
+            { text: 'Wait for tomorrow', style: 'cancel' },
+            { text: 'See Premium', onPress: () => router.push('/(tabs)/premium') },
+          ],
+        );
+        return;
+      }
+
       // Drop the card first so the deck advances with the animation rather
       // than waiting on the network round trip.
       setDeck((current) => current?.filter((p) => p.id !== profile.id));
@@ -79,7 +93,7 @@ export default function DiscoverScreen() {
         })
         .catch(() => {});
     },
-    [like, pass, router],
+    [like, pass, router, canLike],
   );
 
   const handleMessage = useCallback(
@@ -108,6 +122,14 @@ export default function DiscoverScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <AppHeader />
         <Segmented options={SEGMENTS} value={segment} onChange={setSegment} />
+
+        {segment === 'Discover' && likesRemaining !== null ? (
+          <ThemedText style={[styles.quota, { color: theme.textSecondary }]}>
+            {likesRemaining === 0
+              ? 'No likes left today — they come back tomorrow'
+              : `${likesRemaining} ${likesRemaining === 1 ? 'like' : 'likes'} left today`}
+          </ThemedText>
+        ) : null}
 
         {segment === 'Discover' ? (
           !deck ? (
@@ -187,6 +209,12 @@ const styles = StyleSheet.create({
   },
   picksHeading: {
     flexShrink: 1,
+  },
+  quota: {
+    fontFamily: Fonts.rounded,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: -Spacing.two,
   },
   picksTitle: {
     fontFamily: Fonts.rounded,

@@ -24,7 +24,7 @@ import {
   resetConversations,
   submitReport,
 } from '@/services';
-import type { Decision, DecisionRecord, Report, ReportReason } from '@/types';
+import { FREE_DAILY_LIKES, type Decision, type DecisionRecord, type Report, type ReportReason } from '@/types';
 
 const STORAGE_KEY = 'decisions.v2';
 
@@ -49,6 +49,14 @@ type State = {
   dateOfBirth: string | null;
   /** Set when someone declared an age under 18. A hard stop. */
   underageBlockedAt: string | null;
+  /**
+   * Whether this account has Premium.
+   *
+   * There is no billing yet, so nothing can set this except the developer
+   * toggle in Settings. It is modelled now so the cap and the paywall are
+   * one mechanism rather than two, which is how the backend enforces it.
+   */
+  premium: boolean;
   /** False until AsyncStorage has been read, so the deck does not flash stale cards. */
   hydrated: boolean;
 };
@@ -63,6 +71,7 @@ const initialState: State = {
   ageConfirmedAt: null,
   dateOfBirth: null,
   underageBlockedAt: null,
+  premium: false,
   hydrated: false,
 };
 
@@ -76,6 +85,7 @@ type Action =
   | { type: 'showWelcome' }
   | { type: 'ageConfirmed'; dateOfBirth: string }
   | { type: 'underage' }
+  | { type: 'setPremium'; premium: boolean }
   | { type: 'reset' };
 
 /** Adds an id to a list without duplicating it. */
@@ -93,7 +103,10 @@ function reducer(state: State, action: Action): State {
     case 'hydrated':
       return { ...action.state, hydrated: true };
     case 'decided': {
-      const history = [...state.history, { profileId: action.profileId, decision: action.decision }];
+      const history = [
+        ...state.history,
+        { profileId: action.profileId, decision: action.decision, at: new Date().toISOString() },
+      ];
       return action.decision === 'pass'
         ? { ...state, passed: add(state.passed, action.profileId), history }
         : { ...state, liked: add(state.liked, action.profileId), history };
@@ -125,6 +138,8 @@ function reducer(state: State, action: Action): State {
       };
     case 'underage':
       return { ...state, underageBlockedAt: new Date().toISOString(), ageConfirmedAt: null };
+    case 'setPremium':
+      return { ...state, premium: action.premium };
     case 'seenWelcome':
       return { ...state, seenWelcome: true };
     case 'showWelcome':
@@ -147,6 +162,7 @@ function reducer(state: State, action: Action): State {
         ageConfirmedAt: state.ageConfirmedAt,
         dateOfBirth: state.dateOfBirth,
         underageBlockedAt: state.underageBlockedAt,
+        premium: state.premium,
         hydrated: true,
       };
     default:
@@ -170,6 +186,13 @@ type DecisionsValue = {
   undo: () => string | undefined;
   completeWelcome: () => Promise<void>;
   showWelcomeAgain: () => Promise<void>;
+  /** Likes sent today. Passes do not count. */
+  likesUsedToday: number;
+  /** Likes left today, or null when there is no cap. */
+  likesRemaining: number | null;
+  /** False once a free account has used its daily likes. */
+  canLike: boolean;
+  setPremium: (premium: boolean) => Promise<void>;
   /** Records an 18+ declaration against the date of birth given. */
   confirmAge: (dateOfBirth: Date) => Promise<void>;
   /** Records that someone declared an age under 18. */
@@ -207,6 +230,7 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
             ageConfirmedAt: parsed.ageConfirmedAt ?? null,
             dateOfBirth: parsed.dateOfBirth ?? null,
             underageBlockedAt: parsed.underageBlockedAt ?? null,
+            premium: parsed.premium ?? false,
           },
         });
       })
@@ -224,6 +248,7 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
               ageConfirmedAt: null,
               dateOfBirth: null,
               underageBlockedAt: null,
+              premium: false,
             },
           });
         }
@@ -250,6 +275,7 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
       ageConfirmedAt,
       dateOfBirth,
       underageBlockedAt,
+      premium,
     } = state;
     AsyncStorage.setItem(
       STORAGE_KEY,
@@ -263,6 +289,7 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
         ageConfirmedAt,
         dateOfBirth,
         underageBlockedAt,
+        premium,
       }),
     ).catch(
       () => {
@@ -303,6 +330,10 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     await submitReport(profileId, reason);
   }, []);
 
+  const setPremium = useCallback(async (premium: boolean) => {
+    dispatch({ type: 'setPremium', premium });
+  }, []);
+
   const confirmAge = useCallback(async (dateOfBirth: Date) => {
     dispatch({ type: 'ageConfirmed', dateOfBirth: dateOfBirth.toISOString().slice(0, 10) });
   }, []);
@@ -333,11 +364,24 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     const excludedIds = [...new Set([...state.liked, ...state.passed, ...state.blocked])];
     const last = state.history.at(-1);
 
+    // Counted from the start of the local day. The backend counts from
+    // date_trunc('day', now()) in the same way; this mirrors it so the two
+    // do not disagree about when the quota resets.
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const likesUsedToday = state.history.filter(
+      (entry) => entry.decision !== 'pass' && new Date(entry.at).getTime() >= startOfDay.getTime(),
+    ).length;
+
     return {
       state,
       excludedIds,
       isBlocked: (profileId: string) => state.blocked.includes(profileId),
       canUndo: state.history.length > 0,
+      likesUsedToday,
+      likesRemaining: state.premium ? null : Math.max(0, FREE_DAILY_LIKES - likesUsedToday),
+      canLike: state.premium || likesUsedToday < FREE_DAILY_LIKES,
+      setPremium,
       like,
       superLike,
       pass,
@@ -370,6 +414,7 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     showWelcomeAgain,
     confirmAge,
     blockUnderage,
+    setPremium,
   ]);
 
   return <DecisionsContext.Provider value={value}>{children}</DecisionsContext.Provider>;
