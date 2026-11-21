@@ -44,6 +44,16 @@ export default function RootLayout() {
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="match/[id]"
+              options={{
+                headerShown: false,
+                // Full screen, because a match earns the whole screen. It is
+                // the one moment in the app worth interrupting for.
+                presentation: 'fullScreenModal',
+                animation: 'fade',
+              }}
+            />
             <Stack.Screen name="profile/[id]" options={{ title: '' }} />
             <Stack.Screen name="chat/[id]" options={{ title: '' }} />
             <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />

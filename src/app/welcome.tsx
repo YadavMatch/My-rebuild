@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
@@ -8,7 +9,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { WelcomeEffects } from '@/components/welcome-effects';
 import { APP_NAME, APP_TAGLINE } from '@/constants/app';
-import { Fonts, LOGO_FONT, Radius, Spacing } from '@/constants/theme';
+import { BRAND_GRADIENT, Fonts, LOGO_FONT, Radius, Spacing } from '@/constants/theme';
 import { useDecisions } from '@/store/decisions';
 
 export default function WelcomeScreen() {
@@ -29,7 +30,7 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#F3F2E8', '#F2DDD8', '#D1674A']}
+        colors={BRAND_GRADIENT}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.6, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -39,10 +40,13 @@ export default function WelcomeScreen() {
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.hero}>
-          <Animated.View entering={entrance(80)} style={styles.logoMark}>
-            <ThemedText style={styles.logoGlyph} allowFontScaling={false}>
-              ♥
-            </ThemedText>
+          <Animated.View entering={entrance(80)}>
+            <Image
+              source={require('@/assets/images/heart-mark.png')}
+              style={styles.logoMark}
+              contentFit="contain"
+              accessibilityLabel={`${APP_NAME} logo`}
+            />
           </Animated.View>
 
           <Animated.View entering={entrance(200)}>
@@ -62,7 +66,7 @@ export default function WelcomeScreen() {
           glitch rather than as ambience.
         */}
         <LinearGradient
-          colors={['transparent', 'rgba(120, 52, 34, 0.35)']}
+          colors={['transparent', 'rgba(20, 10, 7, 0.45)']}
           style={styles.actionsScrim}
           pointerEvents="none"
         />
@@ -115,7 +119,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F2E8',
+    backgroundColor: '#241611',
   },
   safeArea: {
     flex: 1,
@@ -130,19 +134,8 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   logoMark: {
-    width: 96,
-    height: 96,
-    borderRadius: Radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-  },
-  logoGlyph: {
-    fontSize: 46,
-    lineHeight: 56,
-    color: '#ffffff',
+    width: 132,
+    height: 132,
   },
   title: {
     fontFamily: LOGO_FONT,
@@ -204,7 +197,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   legal: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.75)',
     textAlign: 'center',
     paddingHorizontal: Spacing.three,
   },

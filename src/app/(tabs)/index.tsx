@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
@@ -70,10 +70,12 @@ export default function DiscoverScreen() {
           if (!conversationId) {
             return;
           }
-          Alert.alert(`You matched with ${profile.name}`, 'They liked you too. Say something.', [
-            { text: 'Later', style: 'cancel' },
-            { text: 'Send a message', onPress: () => router.push(`/chat/${conversationId}`) },
-          ]);
+          // A real screen rather than a system alert: this is the best
+          // moment in the app, and `Alert` is also a no-op on web.
+          router.push({
+            pathname: '/match/[id]',
+            params: { id: profile.id, conversationId },
+          });
         })
         .catch(() => {});
     },
