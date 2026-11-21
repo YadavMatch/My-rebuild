@@ -105,9 +105,21 @@ export const REPORT_REASONS = [
 
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
+/**
+ * Where a report was filed from.
+ *
+ * Mirrors the `report_context` enum in the schema. Moderation needs it: a
+ * report about a conversation should arrive with the conversation attached,
+ * because the evidence is in the messages rather than on the profile.
+ */
+export type ReportContext = 'profile' | 'conversation';
+
 export type Report = {
   profileId: string;
   reason: ReportReason;
+  context: ReportContext;
+  /** Set when the report came from a conversation. */
+  conversationId?: string;
   /** ISO 8601. */
   reportedAt: string;
 };

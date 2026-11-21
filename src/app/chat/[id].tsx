@@ -16,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchConversation, getProfileSync, sendMessage } from '@/services';
+import { useDecisions } from '@/store/decisions';
 import type { Conversation } from '@/types';
 
 export default function ChatScreen() {
@@ -23,6 +24,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const theme = useTheme();
+  const { isBlocked } = useDecisions();
 
   const [conversation, setConversation] = useState<Conversation | undefined | null>(undefined);
   const [draft, setDraft] = useState('');
@@ -51,10 +53,37 @@ export default function ChatScreen() {
     };
   }, [id]);
 
-  // Title the screen with the other person once we know who they are.
+  // Title the screen with the other person, and give the conversation its own
+  // report entry point. Reporting only from the profile means someone being
+  // harassed in a chat has to go and find the profile first, which is exactly
+  // the wrong moment to add a step.
   useLayoutEffect(() => {
-    navigation.setOptions({ title: profile?.name ?? '' });
-  }, [navigation, profile?.name]);
+    navigation.setOptions({
+      title: profile?.name ?? '',
+      headerRight: profile
+        ? () => (
+            <PressableScale
+              onPress={() =>
+                router.push({
+                  pathname: '/report/[id]',
+                  params: {
+                    id: profile.id,
+                    context: 'conversation',
+                    conversationId: conversation?.id ?? '',
+                  },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Report ${profile.name} or this conversation`}
+              style={styles.headerAction}>
+              <ThemedText style={[styles.headerGlyph, { color: theme.textSecondary }]}>
+                ···
+              </ThemedText>
+            </PressableScale>
+          )
+        : undefined,
+    });
+  }, [navigation, profile, conversation?.id, router, theme.textSecondary]);
 
   async function handleSend() {
     const text = draft.trim();
@@ -80,6 +109,18 @@ export default function ChatScreen() {
 
   if (conversation === undefined) {
     return <ScreenLoading label="Loading conversation" />;
+  }
+
+  // Blocking is what reporting does, so after a report this screen would
+  // otherwise sit there showing a conversation that no longer exists.
+  if (profile && isBlocked(profile.id)) {
+    return (
+      <EmptyState
+        emoji="🔒"
+        title="You blocked this person"
+        body="This conversation is no longer available. They cannot see it or reach you either."
+      />
+    );
   }
 
   if (conversation === null || !profile) {
@@ -159,6 +200,16 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerAction: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerGlyph: {
+    fontSize: 22,
+    fontWeight: '700',
   },
   list: {
     gap: Spacing.two,

@@ -88,7 +88,12 @@ export default function ProfileDetailScreen() {
       */}
       <View style={styles.safety}>
         <PressableScale
-          onPress={() => router.push(`/report/${profile.id}`)}
+          onPress={() =>
+            router.push({
+              pathname: '/report/[id]',
+              params: { id: profile.id, context: 'profile' },
+            })
+          }
           accessibilityRole="button"
           accessibilityLabel={`Report ${profile.name}`}
           style={[styles.safetyButton, { borderColor: theme.border }]}>

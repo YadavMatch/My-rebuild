@@ -239,9 +239,17 @@ export async function registerSuperLike(profileId: string): Promise<LikeResult> 
  * and a block must be enforced server-side — a client-side block alone still
  * lets the other person see and message you.
  */
-export async function submitReport(profileId: string, reason: string): Promise<void> {
+export async function submitReport(
+  profileId: string,
+  reason: string,
+  context: 'profile' | 'conversation',
+  conversationId?: string,
+): Promise<void> {
   await delay(250);
   if (__DEV__) {
-    console.log(`[moderation] report filed against ${profileId}: ${reason}`);
+    console.log(
+      `[moderation] report filed against ${profileId} from ${context}` +
+        `${conversationId ? ` (${conversationId})` : ''}: ${reason}`,
+    );
   }
 }

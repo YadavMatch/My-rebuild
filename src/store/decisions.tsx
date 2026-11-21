@@ -24,7 +24,14 @@ import {
   resetConversations,
   submitReport,
 } from '@/services';
-import { FREE_DAILY_LIKES, type Decision, type DecisionRecord, type Report, type ReportReason } from '@/types';
+import {
+  FREE_DAILY_LIKES,
+  type Decision,
+  type DecisionRecord,
+  type Report,
+  type ReportContext,
+  type ReportReason,
+} from '@/types';
 
 const STORAGE_KEY = 'decisions.v2';
 
@@ -198,7 +205,12 @@ type DecisionsValue = {
   /** Records that someone declared an age under 18. */
   blockUnderage: () => Promise<void>;
   block: (profileId: string) => Promise<void>;
-  report: (profileId: string, reason: ReportReason) => Promise<void>;
+  report: (
+    profileId: string,
+    reason: ReportReason,
+    context?: ReportContext,
+    conversationId?: string,
+  ) => Promise<void>;
   reset: () => Promise<void>;
 };
 
@@ -319,16 +331,30 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'blocked', profileId });
   }, []);
 
-  const report = useCallback(async (profileId: string, reason: ReportReason) => {
-    dispatch({
-      type: 'reported',
-      report: { profileId, reason, reportedAt: new Date().toISOString() },
-    });
-    // Reporting someone also blocks them — nobody reports a profile and then
-    // wants to keep seeing it.
-    dispatch({ type: 'blocked', profileId });
-    await submitReport(profileId, reason);
-  }, []);
+  const report = useCallback(
+    async (
+      profileId: string,
+      reason: ReportReason,
+      context: ReportContext = 'profile',
+      conversationId?: string,
+    ) => {
+      dispatch({
+        type: 'reported',
+        report: {
+          profileId,
+          reason,
+          context,
+          conversationId,
+          reportedAt: new Date().toISOString(),
+        },
+      });
+      // Reporting someone also blocks them — nobody reports a person and then
+      // wants to keep seeing them or hearing from them.
+      dispatch({ type: 'blocked', profileId });
+      await submitReport(profileId, reason, context, conversationId);
+    },
+    [],
+  );
 
   const setPremium = useCallback(async (premium: boolean) => {
     dispatch({ type: 'setPremium', premium });
