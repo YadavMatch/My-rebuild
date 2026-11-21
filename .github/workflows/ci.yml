@@ -28,9 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Generates expo-env.d.ts, which is gitignored but required by tsconfig.
-      # Without it, tsc cannot resolve the CSS module imports. This also
-      # rewrites tsconfig.json in place, but is idempotent.
+      # Generates expo-env.d.ts, which is gitignored but required by
+      # tsconfig. Without it, tsc cannot resolve the CSS module imports.
+      # Rewrites tsconfig.json in place, but is idempotent.
       - name: Generate Expo types
         run: npx expo customize tsconfig.json
 
@@ -41,3 +41,43 @@ jobs:
       - name: Lint
         if: ${{ !cancelled() }}
         run: npm run lint
+
+  doctor:
+    name: Project health
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Checks dependency versions against the installed SDK, plus app config
+      # and native-folder consistency. Reaches the npm registry and Expo's
+      # API, so it can go red on upstream releases with no change here.
+      - name: Run expo-doctor
+        run: npx expo-doctor
+
+  bundle:
+    name: iOS bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Bundles the app exactly as a real build does, so this catches broken
+      # imports, missing assets and Metro resolution errors that neither the
+      # typecheck nor the linter sees. Needs no Mac and no EAS account.
+      - name: Export iOS bundle
+        run: npx expo export --platform ios

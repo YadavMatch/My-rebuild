@@ -107,15 +107,37 @@ catches import and asset errors without needing a Mac.
 
 ## CI
 
-`.github/workflows/ci.yml` runs the typecheck and the linter on every pull
-request and on every push to `main`. Lint runs even when the typecheck fails,
-so a single run reports both.
+`.github/workflows/ci.yml` runs on every pull request and every push to
+`main`, as three parallel jobs:
 
-The workflow runs `npx expo customize tsconfig.json` before `tsc`. That step
+| Job | Runs | Catches |
+| --- | --- | --- |
+| `Typecheck & lint` | `tsc --noEmit`, `expo lint` | type errors, lint violations |
+| `Project health` | `expo-doctor` | dependency version mismatches, config problems |
+| `iOS bundle` | `expo export --platform ios` | broken imports, missing assets, Metro resolution errors |
+
+The jobs are separate so each failure is its own status check and the slow
+bundle job does not hold up the fast ones. Within the first job, lint runs
+even when the typecheck fails, so one run reports both.
+
+The `iOS bundle` job is the closest thing to a real build that runs without
+a Mac or an EAS account — it bundles through Metro exactly as `eas build`
+does, so it catches a broken import that typecheck and lint both miss.
+
+### Two things worth knowing
+
+`Typecheck & lint` runs `npx expo customize tsconfig.json` before `tsc`. That
 generates `expo-env.d.ts`, which is gitignored but which `tsconfig.json`
 includes — without it `tsc` cannot resolve the CSS module imports in
 `src/constants/theme.ts` and `src/components/animated-icon.web.tsx`. Run the
 same command locally if a fresh clone fails to typecheck.
+
+`expo-doctor` reaches the npm registry and Expo's API to compare installed
+package versions against the SDK, so it can turn red after an upstream
+release with no change in this repository. If that becomes annoying, add
+`continue-on-error: true` to its step to make it advisory instead of
+blocking. It is pinned in `package-lock.json`, so the checks themselves
+only change when the dependency is bumped.
 
 ## Notes
 
