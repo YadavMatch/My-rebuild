@@ -26,7 +26,12 @@ caller may read. Private fields go in their own table that only the owner can
 read, so DOB and phone cannot leak through a profile query.
 
 **4. `verified` and `premium` are never client-writable.**
-Both are claims about money and identity. Only service-role code sets them.
+Both are claims about money and identity. Having no update policy is enough
+for `entitlements`, but **not** for `verified`, which sits on `profiles`
+alongside columns the owner must be able to edit. RLS is row-level: a policy
+that lets you update your own row lets you update every column of it.
+Column-level `revoke update (verified, ...)` is the only thing that closes
+that, and testing confirmed a client could hand itself the badge without it.
 
 **5. The selfie check records a result, never a photo.**
 The copy promises the photo is not stored. The schema has nowhere to put one,
@@ -268,8 +273,19 @@ Note what this buys: blocking someone makes an existing conversation
 unreadable to both sides immediately, without deleting anything or running a
 cleanup job.
 
-`verified` and `tier` are not writable by these policies at all — no update
-policy grants them, so only service-role code can set them.
+`tier` is not writable by these policies at all — `entitlements` has no
+update policy, so only service-role code can set it.
+
+`verified` needs more than that. It lives on `profiles`, which the owner must
+be able to update, and a row-level policy cannot exclude one column. The
+migration revokes the column privilege explicitly:
+
+```sql
+revoke update (verified, verified_at, created_at) on profiles from authenticated;
+```
+
+Without that line a client can award itself a verified badge with a single
+update. That is not hypothetical — the first run of the test suite did it.
 
 ---
 
