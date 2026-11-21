@@ -44,6 +44,15 @@ export default function RootLayout() {
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
+            <Stack.Screen name="age-gate" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="underage"
+              options={{
+                headerShown: false,
+                // No swipe back and no header: this is a stop, not a step.
+                gestureEnabled: false,
+              }}
+            />
             <Stack.Screen
               name="match/[id]"
               options={{

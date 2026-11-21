@@ -12,6 +12,7 @@ Running on seed data, no backend yet:
 
 | Screen | What it does |
 | --- | --- |
+| Age gate | Date-of-birth declaration, before anything else. Under 18 is a hard, persisted stop. |
 | Welcome | First launch. Drifting orbs, rising hearts, staggered entrance. |
 | Discover | Swipe deck, plus Pass / Message / Like buttons. |
 | Top Picks | Segment beside Discover. Empty by design — see below. |
@@ -20,6 +21,7 @@ Running on seed data, no backend yet:
 | Messages | Conversations, newest first. |
 | Chat | A thread per match, with a working composer. |
 | Settings | Membership, Privacy & Legal, Danger Zone. |
+| Match | Full-screen celebration when two people like each other. |
 | Profile detail | Bio, interests, prompts, plus report and block. |
 
 Swipes, matches and messages persist across launches via AsyncStorage.
@@ -31,6 +33,10 @@ motor control.
 `APP_NAME` in `src/constants/app.ts` is the wordmark. The tab bar is custom
 rather than `NativeTabs`, because the design puts an elevated circular button
 in the middle of the bar and a real UITabBar cannot do that.
+
+The product target is written down in [`docs/product-spec.md`](docs/product-spec.md),
+with a status table for every claim and the order the remaining work should
+land in.
 
 ## What is deliberately empty or honest
 

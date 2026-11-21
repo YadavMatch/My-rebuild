@@ -37,6 +37,18 @@ type State = {
   history: DecisionRecord[];
   /** False until the welcome screen has been dismissed once. */
   seenWelcome: boolean;
+  /**
+   * When the person confirmed they are 18 or over, ISO 8601.
+   *
+   * Stored as a timestamp rather than a boolean so there is a record of
+   * when the confirmation was given, which is what an age declaration is
+   * worth anything for.
+   */
+  ageConfirmedAt: string | null;
+  /** Date of birth they entered, ISO date. Kept to recheck the declaration. */
+  dateOfBirth: string | null;
+  /** Set when someone declared an age under 18. A hard stop. */
+  underageBlockedAt: string | null;
   /** False until AsyncStorage has been read, so the deck does not flash stale cards. */
   hydrated: boolean;
 };
@@ -48,6 +60,9 @@ const initialState: State = {
   reports: [],
   history: [],
   seenWelcome: false,
+  ageConfirmedAt: null,
+  dateOfBirth: null,
+  underageBlockedAt: null,
   hydrated: false,
 };
 
@@ -59,6 +74,8 @@ type Action =
   | { type: 'reported'; report: Report }
   | { type: 'seenWelcome' }
   | { type: 'showWelcome' }
+  | { type: 'ageConfirmed'; dateOfBirth: string }
+  | { type: 'underage' }
   | { type: 'reset' };
 
 /** Adds an id to a list without duplicating it. */
@@ -99,6 +116,15 @@ function reducer(state: State, action: Action): State {
         history: state.history.slice(0, -1),
       };
     }
+    case 'ageConfirmed':
+      return {
+        ...state,
+        ageConfirmedAt: new Date().toISOString(),
+        dateOfBirth: action.dateOfBirth,
+        underageBlockedAt: null,
+      };
+    case 'underage':
+      return { ...state, underageBlockedAt: new Date().toISOString(), ageConfirmedAt: null };
     case 'seenWelcome':
       return { ...state, seenWelcome: true };
     case 'showWelcome':
@@ -115,7 +141,14 @@ function reducer(state: State, action: Action): State {
     case 'reset':
       // Keeps `seenWelcome`, so resetting swipes during development does not
       // also throw the welcome screen back in your face.
-      return { ...initialState, seenWelcome: state.seenWelcome, hydrated: true };
+      return {
+        ...initialState,
+        seenWelcome: state.seenWelcome,
+        ageConfirmedAt: state.ageConfirmedAt,
+        dateOfBirth: state.dateOfBirth,
+        underageBlockedAt: state.underageBlockedAt,
+        hydrated: true,
+      };
     default:
       return state;
   }
@@ -137,6 +170,10 @@ type DecisionsValue = {
   undo: () => string | undefined;
   completeWelcome: () => Promise<void>;
   showWelcomeAgain: () => Promise<void>;
+  /** Records an 18+ declaration against the date of birth given. */
+  confirmAge: (dateOfBirth: Date) => Promise<void>;
+  /** Records that someone declared an age under 18. */
+  blockUnderage: () => Promise<void>;
   block: (profileId: string) => Promise<void>;
   report: (profileId: string, reason: ReportReason) => Promise<void>;
   reset: () => Promise<void>;
@@ -167,6 +204,9 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
             reports: parsed.reports ?? [],
             history: parsed.history ?? [],
             seenWelcome: parsed.seenWelcome ?? false,
+            ageConfirmedAt: parsed.ageConfirmedAt ?? null,
+            dateOfBirth: parsed.dateOfBirth ?? null,
+            underageBlockedAt: parsed.underageBlockedAt ?? null,
           },
         });
       })
@@ -181,6 +221,9 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
               reports: [],
               history: [],
               seenWelcome: false,
+              ageConfirmedAt: null,
+              dateOfBirth: null,
+              underageBlockedAt: null,
             },
           });
         }
@@ -197,10 +240,30 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     if (!state.hydrated) {
       return;
     }
-    const { liked, passed, blocked, reports, history, seenWelcome } = state;
+    const {
+      liked,
+      passed,
+      blocked,
+      reports,
+      history,
+      seenWelcome,
+      ageConfirmedAt,
+      dateOfBirth,
+      underageBlockedAt,
+    } = state;
     AsyncStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ liked, passed, blocked, reports, history, seenWelcome }),
+      JSON.stringify({
+        liked,
+        passed,
+        blocked,
+        reports,
+        history,
+        seenWelcome,
+        ageConfirmedAt,
+        dateOfBirth,
+        underageBlockedAt,
+      }),
     ).catch(
       () => {
         // Persistence is a convenience here; failing to write must not break the app.
@@ -238,6 +301,14 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     // wants to keep seeing it.
     dispatch({ type: 'blocked', profileId });
     await submitReport(profileId, reason);
+  }, []);
+
+  const confirmAge = useCallback(async (dateOfBirth: Date) => {
+    dispatch({ type: 'ageConfirmed', dateOfBirth: dateOfBirth.toISOString().slice(0, 10) });
+  }, []);
+
+  const blockUnderage = useCallback(async () => {
+    dispatch({ type: 'underage' });
   }, []);
 
   const completeWelcome = useCallback(async () => {
@@ -281,11 +352,25 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
       },
       completeWelcome,
       showWelcomeAgain,
+      confirmAge,
+      blockUnderage,
       block,
       report,
       reset,
     };
-  }, [state, like, superLike, pass, block, report, reset, completeWelcome, showWelcomeAgain]);
+  }, [
+    state,
+    like,
+    superLike,
+    pass,
+    block,
+    report,
+    reset,
+    completeWelcome,
+    showWelcomeAgain,
+    confirmAge,
+    blockUnderage,
+  ]);
 
   return <DecisionsContext.Provider value={value}>{children}</DecisionsContext.Provider>;
 }

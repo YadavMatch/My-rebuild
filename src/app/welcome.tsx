@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import { useDecisions } from '@/store/decisions';
 export default function WelcomeScreen() {
   const router = useRouter();
   const reducedMotion = useReducedMotion();
-  const { completeWelcome } = useDecisions();
+  const { state, completeWelcome } = useDecisions();
 
   // Reduced motion keeps the fade — it explains that content arrived — and
   // drops the upward travel.
@@ -25,6 +25,14 @@ export default function WelcomeScreen() {
   function enter() {
     completeWelcome().catch(() => {});
     router.replace('/(tabs)');
+  }
+
+  // Deep-linking straight to /welcome must not skip the age gate.
+  if (state.hydrated && state.underageBlockedAt) {
+    return <Redirect href="/underage" />;
+  }
+  if (state.hydrated && !state.ageConfirmedAt) {
+    return <Redirect href="/age-gate" />;
   }
 
   return (
