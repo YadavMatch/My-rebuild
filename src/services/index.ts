@@ -116,6 +116,11 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   return currentUser;
 }
 
+/** Synchronous read, for screens that must render the user immediately. */
+export function getCurrentUserSync(): CurrentUser {
+  return currentUser;
+}
+
 export async function fetchConversations(blockedIds: string[]): Promise<Conversation[]> {
   const all = await loadConversations();
   await delay(300);

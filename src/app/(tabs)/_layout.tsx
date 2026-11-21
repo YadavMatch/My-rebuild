@@ -6,10 +6,20 @@ import { useDecisions } from '@/store/decisions';
 export default function TabLayout() {
   const { state } = useDecisions();
 
-  // Nothing until storage has been read, otherwise the welcome screen flashes
-  // up for people who have already dismissed it.
+  // Nothing until storage has been read, otherwise the gates flash up for
+  // people who have already passed them.
   if (!state.hydrated) {
     return null;
+  }
+
+  // Order matters: the age block outranks everything, then the age
+  // declaration, then the welcome screen.
+  if (state.underageBlockedAt) {
+    return <Redirect href="/underage" />;
+  }
+
+  if (!state.ageConfirmedAt) {
+    return <Redirect href="/age-gate" />;
   }
 
   if (!state.seenWelcome) {

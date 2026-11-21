@@ -92,10 +92,15 @@ function Orb({ index, reducedMotion }: { index: number; reducedMotion: boolean }
   );
 }
 
+/**
+ * Warm glows rather than solid colour. The teal that works as a verification
+ * badge turns muddy grey when laid over the dark brown here, so the ambient
+ * orbs stay in the warm half of the palette.
+ */
 const ORB_COLOURS = [
-  'rgba(209, 103, 74, 0.35)',
-  'rgba(62, 142, 128, 0.22)',
-  'rgba(242, 221, 216, 0.6)',
+  'rgba(209, 103, 74, 0.38)',
+  'rgba(232, 168, 124, 0.18)',
+  'rgba(242, 221, 216, 0.12)',
 ];
 
 /** A heart that rises up the screen and fades out, then starts again. */

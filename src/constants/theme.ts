@@ -80,6 +80,16 @@ export const Fonts = Platform.select({
   },
 });
 
+/**
+ * The gradient behind the welcome and match screens.
+ *
+ * Deliberately dark: both screens set their content in white, and over the
+ * app's cream background that was close to unreadable — the fine print at
+ * the bottom of the welcome screen all but disappeared. Warm browns into
+ * terracotta keep it on-brand while giving white text something to sit on.
+ */
+export const BRAND_GRADIENT = ['#241611', '#6B3526', '#B5523A'] as const;
+
 /** The script face used for the wordmark. Loaded in the root layout. */
 export const LOGO_FONT = 'Pacifico_400Regular';
 
