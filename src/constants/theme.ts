@@ -14,6 +14,17 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    /** Brand colour, used for the primary action on a screen and nothing else. */
+    accent: '#E0245E',
+    accentPressed: '#C01A4E',
+    /** Text and icons that sit on top of `accent`. */
+    onAccent: '#ffffff',
+    /** The two swipe outcomes. Paired with icons and text, never colour alone. */
+    like: '#1D9A6C',
+    pass: '#D1495B',
+    border: '#E4E4E7',
+    /** Scrim behind sheets and over the bottom of a photo card. */
+    overlay: 'rgba(0, 0, 0, 0.55)',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +32,13 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    accent: '#FF5C8A',
+    accentPressed: '#E0245E',
+    onAccent: '#1A0710',
+    like: '#3DD598',
+    pass: '#FF6B81',
+    border: '#2E3135',
+    overlay: 'rgba(0, 0, 0, 0.65)',
   },
 } as const;
 
@@ -63,3 +81,39 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 20,
+  card: 28,
+  pill: 999,
+} as const;
+
+/**
+ * Gradient pairs used for profile avatars, picked deterministically from a
+ * profile id so the same person always gets the same colours.
+ *
+ * Generated rather than photographic on purpose: the app ships no stock
+ * portraits of real people. Swap `ProfilePhoto` for a real image component
+ * once profiles carry uploaded photos.
+ */
+export const AvatarGradients = [
+  ['#FF6B6B', '#C9184A'],
+  ['#4C6EF5', '#1864AB'],
+  ['#12B886', '#0B7285'],
+  ['#F59F00', '#E8590C'],
+  ['#AE3EC9', '#6741D9'],
+  ['#FF8787', '#E8590C'],
+  ['#20C997', '#0CA678'],
+  ['#5C7CFA', '#3B5BDB'],
+] as const;
+
+/** Stable index into `AvatarGradients` for a given id. */
+export function gradientForId(id: string): readonly [string, string] {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) % 100000;
+  }
+  return AvatarGradients[hash % AvatarGradients.length] as unknown as readonly [string, string];
+}
