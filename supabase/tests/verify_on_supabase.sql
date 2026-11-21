@@ -1,0 +1,74 @@
+-- Post-migration check. Paste this whole file into the Supabase SQL editor
+-- after running the migration.
+--
+-- Read-only: it inspects the catalogue and writes nothing. Every row should
+-- read PASS. Anything else means the migration did not land as intended and
+-- the app should not be pointed at this project yet.
+
+with checks as (
+
+  select 1 as n, 'PostGIS installed' as item,
+         exists (select 1 from pg_extension where extname = 'postgis') as ok
+
+  union all select 2, 'All 12 tables created',
+    (select count(*) from pg_tables where schemaname = 'public'
+       and tablename in ('profiles','profiles_private','prompts','profile_prompts',
+                         'swipes','matches','messages','blocks','reports',
+                         'verification_attempts','entitlements','push_tokens')) = 12
+
+  union all select 3, 'Row-level security on every public table',
+    (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) = 0
+
+  union all select 4, 'No table left without a policy',
+    (select count(*) from (
+       select t.tablename from pg_tables t
+       left join pg_policies p on p.schemaname = 'public' and p.tablename = t.tablename
+       where t.schemaname = 'public' and t.rowsecurity
+       group by t.tablename having count(p.policyname) = 0
+     ) x) = 0
+
+  union all select 5, 'is_blocked() exists',
+    exists (select 1 from pg_proc where proname = 'is_blocked')
+
+  union all select 6, 'Match trigger installed on swipes',
+    exists (select 1 from pg_trigger where tgname = 'swipes_create_match' and not tgisinternal)
+
+  union all select 7, 'Rate-limit trigger installed on swipes',
+    exists (select 1 from pg_trigger where tgname = 'swipes_rate_limit' and not tgisinternal)
+
+  union all select 8, 'Signup trigger installed on auth.users',
+    exists (select 1 from pg_trigger where tgname = 'on_auth_user_created' and not tgisinternal)
+
+  union all select 9, 'Clients CANNOT update profiles.verified',
+    not has_column_privilege('authenticated', 'public.profiles', 'verified', 'UPDATE')
+
+  union all select 10, 'Clients CAN still update profiles.bio',
+    has_column_privilege('authenticated', 'public.profiles', 'bio', 'UPDATE')
+
+  union all select 11, 'Clients CANNOT update entitlements (no Premium self-grant)',
+    not has_table_privilege('authenticated', 'public.entitlements', 'UPDATE')
+
+  union all select 12, 'Clients CANNOT write verification_attempts',
+    not has_table_privilege('authenticated', 'public.verification_attempts', 'INSERT')
+
+  union all select 13, 'Free daily like cap is 6',
+    (select prosrc like '%else 6 end%' from pg_proc where proname = 'enforce_swipe_limit')
+
+  union all select 14, 'discover_feed() exists',
+    exists (select 1 from pg_proc where proname = 'discover_feed')
+
+  union all select 15, 'messages published for realtime',
+    exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+    )
+
+  union all select 16, 'Prompt catalogue seeded',
+    (select count(*) from prompts) >= 10
+)
+
+select n as "#",
+       item as "check",
+       case when ok then 'PASS' else '*** FAIL ***' end as result
+from checks
+order by n;

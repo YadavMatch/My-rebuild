@@ -38,6 +38,19 @@ The product target is written down in [`docs/product-spec.md`](docs/product-spec
 with a status table for every claim and the order the remaining work should
 land in.
 
+## Backend
+
+Supabase. The schema is written and tested but not yet created on a project:
+
+- [`docs/supabase-setup.md`](docs/supabase-setup.md) — what to do to stand it up
+- [`docs/data-model.md`](docs/data-model.md) — why the schema looks the way it does
+- `supabase/migrations/0001_initial_schema.sql` — the migration to run
+- `./supabase/tests/run.sh` — asserts the security properties against a
+  throwaway Postgres
+
+Until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set
+in `.env`, the app runs on the seed data in `src/data` exactly as before.
+
 ## What is deliberately empty or honest
 
 These screens tell the truth about what the app cannot do yet, rather than
