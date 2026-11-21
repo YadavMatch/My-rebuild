@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
@@ -13,7 +13,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { createConversation, fetchDeck } from '@/services';
 import { useDecisions } from '@/store/decisions';
-import { FREE_DAILY_LIKES, type Decision, type Profile } from '@/types';
+import { type Decision, type Profile } from '@/types';
 
 const SEGMENTS = ['Discover', 'Top Picks'] as const;
 type Segment = (typeof SEGMENTS)[number];
@@ -59,14 +59,7 @@ export default function DiscoverScreen() {
       // Passes are never capped — the limit exists to slow down likes, and
       // blocking passes would trap people on a card they do not want.
       if (decision !== 'pass' && !canLike) {
-        Alert.alert(
-          "You're out of likes for today",
-          `Free accounts get ${FREE_DAILY_LIKES} likes a day. Your likes come back tomorrow, or Premium removes the limit.`,
-          [
-            { text: 'Wait for tomorrow', style: 'cancel' },
-            { text: 'See Premium', onPress: () => router.push('/(tabs)/premium') },
-          ],
-        );
+        router.push('/paywall');
         return;
       }
 
