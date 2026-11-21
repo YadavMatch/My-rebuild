@@ -69,6 +69,16 @@ export default function RootLayout() {
             <Stack.Screen name="invite" options={{ title: 'Invite' }} />
             <Stack.Screen name="legal/[doc]" options={{ title: '' }} />
             <Stack.Screen
+              name="paywall"
+              options={{
+                presentation: 'formSheet',
+                title: '',
+                headerShown: false,
+                sheetAllowedDetents: [0.65],
+                sheetGrabberVisible: true,
+              }}
+            />
+            <Stack.Screen
               name="report/[id]"
               options={{
                 // A real UISheetPresentationController rather than a modal

@@ -22,6 +22,7 @@ Running on seed data, no backend yet:
 | Chat | A thread per match, with a working composer. |
 | Settings | Membership, Privacy & Legal, Danger Zone. |
 | Match | Full-screen celebration when two people like each other. |
+| Paywall | Sheet shown when a free account runs out of its 6 daily likes. |
 | Profile detail | Bio, interests, prompts, plus report and block. |
 
 Swipes, matches and messages persist across launches via AsyncStorage.
@@ -117,10 +118,10 @@ really do:
 - **Reporting.** Reports currently log and resolve. They have to reach a
   moderation queue that a human reads.
 
-One thing the mock cannot do on web: `Alert` is a no-op in
-react-native-web, so the "it's a match" dialog does not appear in a browser.
-It works on iOS. Worth replacing with a real match screen before launch —
-it is the best moment in a dating app and a system alert undersells it.
+Note on `Alert`: it is a no-op in react-native-web, so anything built on it
+is invisible in a browser while working on iOS. Both places that mattered —
+the match celebration and the out-of-likes paywall — are now real screens
+instead. Worth remembering before reaching for `Alert` again.
 
 Profile photos are generated gradients with an initial rather than stock
 portraits — using photographs of real people as fake profiles is a bad idea.
