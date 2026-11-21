@@ -12,6 +12,8 @@
  * anyone but you uses this app.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import conversationsSeed from '@/data/conversations.json';
 import meSeed from '@/data/me.json';
 import profilesSeed from '@/data/profiles.json';
@@ -33,17 +35,59 @@ function delay(ms: number): Promise<void> {
 const profiles: Profile[] = profilesSeed;
 const currentUser: CurrentUser = meSeed;
 
+const CONVERSATIONS_KEY = 'conversations.v1';
+
 /**
- * In-memory message log, seeded from JSON.
+ * The message log: matches made and messages sent.
  *
- * Mutating a module-level array is exactly what a real backend replaces. It
- * is kept here rather than in the store so that screens treat sent messages
- * as server state they re-read, which is how they will behave against an API.
+ * Persisted, and that is not incidental. Decisions are saved by the store, so
+ * if conversations were only held in memory then after a restart you would
+ * have liked someone, lost the match, and still have them excluded from the
+ * deck — they would be unreachable. Server state has to outlive the process
+ * in the same way the decisions that produced it do.
+ *
+ * A real backend replaces this wholesale; it is modelled here so the screens
+ * already treat conversations as state they re-read rather than own.
  */
-const conversations: Conversation[] = conversationsSeed.map((c) => ({
-  ...c,
-  messages: [...c.messages],
-}));
+let conversations: Conversation[] | null = null;
+let loading: Promise<Conversation[]> | null = null;
+
+function seedConversations(): Conversation[] {
+  return conversationsSeed.map((c) => ({ ...c, messages: [...c.messages] }));
+}
+
+/** Loads the log once, from storage if present and from the seed if not. */
+function loadConversations(): Promise<Conversation[]> {
+  if (conversations) {
+    return Promise.resolve(conversations);
+  }
+  if (!loading) {
+    loading = AsyncStorage.getItem(CONVERSATIONS_KEY)
+      .then((raw) => (raw ? (JSON.parse(raw) as Conversation[]) : seedConversations()))
+      .catch(() => seedConversations())
+      .then((list) => {
+        conversations = list;
+        return list;
+      });
+  }
+  return loading;
+}
+
+function persistConversations(): void {
+  if (!conversations) {
+    return;
+  }
+  AsyncStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations)).catch(() => {
+    // Best effort. Losing a write is better than crashing mid-conversation.
+  });
+}
+
+/** Clears saved conversations and returns to the seed. Used by the reset action. */
+export async function resetConversations(): Promise<void> {
+  conversations = seedConversations();
+  loading = null;
+  await AsyncStorage.removeItem(CONVERSATIONS_KEY).catch(() => {});
+}
 
 /**
  * Profiles to show in the deck, excluding anyone already decided on or blocked.
@@ -73,26 +117,24 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
 }
 
 export async function fetchConversations(blockedIds: string[]): Promise<Conversation[]> {
+  const all = await loadConversations();
   await delay(300);
   const blocked = new Set(blockedIds);
-  return conversations
+  return all
     .filter((c) => !blocked.has(c.profileId))
     .slice()
     .sort((a, b) => lastActivityAt(b).localeCompare(lastActivityAt(a)));
 }
 
 export async function fetchConversation(id: string): Promise<Conversation | undefined> {
+  const all = await loadConversations();
   await delay(200);
-  return conversations.find((c) => c.id === id);
-}
-
-/** The conversation with a given person, if they have matched. */
-export function findConversationByProfileSync(profileId: string): Conversation | undefined {
-  return conversations.find((c) => c.profileId === profileId);
+  return all.find((c) => c.id === id);
 }
 
 export async function sendMessage(conversationId: string, text: string): Promise<Message> {
-  const conversation = conversations.find((c) => c.id === conversationId);
+  const all = await loadConversations();
+  const conversation = all.find((c) => c.id === conversationId);
   if (!conversation) {
     throw new Error(`No conversation with id ${conversationId}`);
   }
@@ -106,6 +148,7 @@ export async function sendMessage(conversationId: string, text: string): Promise
   };
 
   conversation.messages.push(message);
+  persistConversations();
   await delay(120);
   return message;
 }
@@ -117,7 +160,8 @@ export async function sendMessage(conversationId: string, text: string): Promise
  * so a stale deck card cannot crash the app.
  */
 export async function createConversation(profileId: string): Promise<Conversation | undefined> {
-  const existing = conversations.find((c) => c.profileId === profileId);
+  const all = await loadConversations();
+  const existing = all.find((c) => c.profileId === profileId);
   if (existing) {
     return existing;
   }
@@ -131,7 +175,8 @@ export async function createConversation(profileId: string): Promise<Conversatio
     matchedAt: new Date().toISOString(),
     messages: [],
   };
-  conversations.push(conversation);
+  all.push(conversation);
+  persistConversations();
   await delay(120);
   return conversation;
 }
@@ -169,6 +214,17 @@ export async function registerLike(profileId: string): Promise<LikeResult> {
 
 export async function registerPass(_profileId: string): Promise<void> {
   await delay(80);
+}
+
+/**
+ * A super like. The other person is told straight away, so for the purposes
+ * of this mock it always produces a match — which also makes the feature
+ * easy to see working.
+ */
+export async function registerSuperLike(profileId: string): Promise<LikeResult> {
+  await delay(180);
+  const conversation = await createConversation(profileId);
+  return conversation ? { matched: true, conversationId: conversation.id } : { matched: false };
 }
 
 /**

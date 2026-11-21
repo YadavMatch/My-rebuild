@@ -17,9 +17,11 @@ type Props = {
   profiles: Profile[];
   onDecision: (profile: Profile, decision: Decision) => void;
   onOpenProfile: (profileId: string) => void;
+  onUndo: () => void;
+  canUndo: boolean;
 };
 
-export function SwipeDeck({ profiles, onDecision, onOpenProfile }: Props) {
+export function SwipeDeck({ profiles, onDecision, onOpenProfile, onUndo, canUndo }: Props) {
   const theme = useTheme();
   const topCard = useRef<SwipeCardHandle>(null);
 
@@ -79,30 +81,97 @@ export function SwipeDeck({ profiles, onDecision, onOpenProfile }: Props) {
           )}
       </View>
 
-      <View style={styles.actions}>
-        <PressableScale
+      {/*
+        Every action is a labelled button, not just a gesture. Swiping stays
+        the fast path, but nothing is reachable *only* by swiping — that would
+        lock out anyone using a screen reader or with limited motor control,
+        and it hides half the app from someone who has never used it.
+      */}
+      <View style={styles.actions} accessibilityRole="toolbar">
+        <ActionButton
+          glyph="↺"
+          label="Rewind"
+          colour={theme.textSecondary}
+          disabled={!canUndo}
+          onPress={onUndo}
+          hint={canUndo ? 'Take back your last swipe' : 'Nothing to take back yet'}
+        />
+        <ActionButton
+          glyph="✕"
+          label="Pass"
+          colour={theme.pass}
+          disabled={!top}
           onPress={() => handleButton('pass')}
+          hint={top ? `Pass on ${top.name}` : 'Pass'}
+        />
+        <ActionButton
+          glyph="★"
+          label="Super like"
+          colour={theme.accent}
           disabled={!top}
-          accessibilityRole="button"
-          accessibilityLabel={top ? `Pass on ${top.name}` : 'Pass'}
-          style={[styles.actionButton, { borderColor: theme.pass, backgroundColor: theme.background }]}>
-          <ThemedText type="smallBold" style={{ color: theme.pass }}>
-            Pass
-          </ThemedText>
-        </PressableScale>
-
-        <PressableScale
+          onPress={() => handleButton('superlike')}
+          hint={top ? `Super like ${top.name}, they are told straight away` : 'Super like'}
+        />
+        <ActionButton
+          glyph="♥"
+          label="Like"
+          colour={theme.like}
+          disabled={!top}
           onPress={() => handleButton('like')}
-          disabled={!top}
-          accessibilityRole="button"
-          accessibilityLabel={top ? `Like ${top.name}` : 'Like'}
-          style={[styles.actionButton, { borderColor: theme.like, backgroundColor: theme.background }]}>
-          <ThemedText type="smallBold" style={{ color: theme.like }}>
-            Like
-          </ThemedText>
-        </PressableScale>
+          hint={top ? `Like ${top.name}` : 'Like'}
+        />
       </View>
     </View>
+  );
+}
+
+function ActionButton({
+  glyph,
+  label,
+  colour,
+  disabled,
+  onPress,
+  hint,
+}: {
+  glyph: string;
+  label: string;
+  colour: string;
+  disabled: boolean;
+  onPress: () => void;
+  hint: string;
+}) {
+  const theme = useTheme();
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={hint}
+      accessibilityState={{ disabled }}
+      style={styles.action}>
+      <View
+        style={[
+          styles.actionCircle,
+          {
+            borderColor: disabled ? theme.border : colour,
+            backgroundColor: theme.background,
+            opacity: disabled ? 0.45 : 1,
+          },
+        ]}>
+        <ThemedText
+          style={[styles.actionGlyph, { color: disabled ? theme.textSecondary : colour }]}
+          allowFontScaling={false}>
+          {glyph}
+        </ThemedText>
+      </View>
+      {/* The label is always visible. An icon alone is a guess for the user. */}
+      <ThemedText
+        type="small"
+        style={[styles.actionLabel, { color: disabled ? theme.textSecondary : theme.text }]}>
+        {label}
+      </ThemedText>
+    </PressableScale>
   );
 }
 
@@ -123,16 +192,27 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.three,
+    justifyContent: 'space-evenly',
+    alignItems: 'flex-start',
   },
-  actionButton: {
-    minWidth: 120,
-    minHeight: 48,
-    borderWidth: 2,
+  action: {
+    alignItems: 'center',
+    gap: Spacing.one,
+    minWidth: 64,
+  },
+  actionCircle: {
+    width: 56,
+    height: 56,
     borderRadius: Radius.pill,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
+  },
+  actionGlyph: {
+    fontSize: 24,
+    lineHeight: 30,
+  },
+  actionLabel: {
+    fontSize: 12,
   },
 });

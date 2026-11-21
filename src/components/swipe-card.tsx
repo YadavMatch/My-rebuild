@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -41,7 +42,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
   { profile, onDecision, onOpenProfile, colors },
   ref,
 ) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
 
   const x = useSharedValue(0);
@@ -85,17 +86,27 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
       return;
     }
 
-    x.set(
-      withSpring(
-        target,
-        { duration: 320, dampingRatio: 1, velocity: velocityX, overshootClamping: true },
-        (finished) => {
+    const settle = { duration: 320, dampingRatio: 1, overshootClamping: true } as const;
+
+    if (decision === 'superlike') {
+      y.set(
+        withSpring(-height * 1.2, { ...settle, velocity: -1200 }, (finished) => {
           'worklet';
           if (finished) {
             scheduleOnRN(onDecision, profile, decision);
           }
-        },
-      ),
+        }),
+      );
+      return;
+    }
+
+    x.set(
+      withSpring(target, { ...settle, velocity: velocityX }, (finished) => {
+        'worklet';
+        if (finished) {
+          scheduleOnRN(onDecision, profile, decision);
+        }
+      }),
     );
   }
 
@@ -190,7 +201,15 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
           </ThemedText>
         </Animated.View>
 
-        <View style={[styles.scrim, { backgroundColor: colors.overlay }]}>
+        {/*
+          A gradient rather than a solid block: a hard edge across the middle
+          of a photo looks like a bug, and the fade keeps the text legible
+          whatever is behind it.
+        */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.88)']}
+          locations={[0, 0.45, 1]}
+          style={styles.scrim}>
           <ThemedText style={styles.name} accessibilityRole="header">
             {profile.name}, {profile.age}
           </ThemedText>
@@ -204,7 +223,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
             accessibilityRole="link">
             Read {profile.name}&apos;s full profile
           </ThemedText>
-        </View>
+        </LinearGradient>
       </Animated.View>
     </GestureDetector>
   );
@@ -240,7 +259,8 @@ const styles = StyleSheet.create({
   },
   scrim: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
+    // Tall enough for the fade to be gradual rather than a visible band.
+    paddingTop: Spacing.six,
     paddingBottom: Spacing.four,
     gap: Spacing.one,
   },

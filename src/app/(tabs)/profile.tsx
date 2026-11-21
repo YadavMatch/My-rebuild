@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +17,8 @@ import type { CurrentUser } from '@/types';
 
 export default function OwnProfileScreen() {
   const theme = useTheme();
-  const { state, reset } = useDecisions();
+  const router = useRouter();
+  const { state, reset, showWelcomeAgain } = useDecisions();
   const [me, setMe] = useState<CurrentUser | undefined>(undefined);
   const [bio, setBio] = useState('');
 
@@ -109,6 +111,19 @@ export default function OwnProfileScreen() {
               <Stat label="Passed" value={state.passed.length} />
               <Stat label="Blocked" value={state.blocked.length} />
             </View>
+
+            <PressableScale
+              onPress={() => {
+                showWelcomeAgain().catch(() => {});
+                router.replace('/welcome');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="View the welcome screen again"
+              style={[styles.resetButton, { borderColor: theme.border }]}>
+              <ThemedText type="small" themeColor="textSecondary">
+                View welcome screen
+              </ThemedText>
+            </PressableScale>
 
             <PressableScale
               onPress={() => {

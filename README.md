@@ -10,13 +10,23 @@ TypeScript, Reanimated 4 and Gesture Handler v3.
 
 A complete core loop, running on seed data:
 
-- **Discover** — a swipe deck. Drag a card, or use the Pass / Like buttons.
-- **Profile detail** — photos, bio, interests and prompts, plus report and block.
+- **Welcome** — first-launch screen with a drifting gradient, floating hearts
+  and a staggered entrance. Shown once; reachable again from the You tab.
+- **Discover** — a swipe deck. Drag a card, or use the four labelled actions:
+  Rewind, Pass, Super like, Like.
+- **Profile detail** — bio, interests and prompts, plus report and block.
 - **Matches** — everyone who liked you back, newest activity first.
 - **Chat** — a thread per match, with a working composer.
 - **You** — your own profile, interests, prompts and swipe counters.
 
-Likes, passes and blocks persist across launches via AsyncStorage.
+Swipes, matches and messages all persist across launches via AsyncStorage.
+
+Every action is reachable by tapping a labelled button, not only by swiping.
+A swipe-only deck is unusable with a screen reader or with limited motor
+control, and it hides half the app from a first-time user.
+
+`APP_NAME` in `src/constants/app.ts` is a placeholder — change it there and
+it updates everywhere in the UI.
 
 ## Getting started
 
@@ -69,6 +79,11 @@ really do:
   it is enforced server-side, the other person can still see and message you.
 - **Reporting.** Reports currently log and resolve. They have to reach a
   moderation queue that a human reads.
+
+One thing the mock cannot do on web: `Alert` is a no-op in
+react-native-web, so the "it's a match" dialog does not appear in a browser.
+It works on iOS. Worth replacing with a real match screen before launch —
+it is the best moment in a dating app and a system alert undersells it.
 
 Profile photos are generated gradients with an initial rather than stock
 portraits — using photographs of real people as fake profiles is a bad idea.

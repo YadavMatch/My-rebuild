@@ -57,8 +57,19 @@ export type Conversation = {
   messages: Message[];
 };
 
-/** What someone did with a card in the deck. */
-export type Decision = 'like' | 'pass';
+/**
+ * What someone did with a card in the deck.
+ *
+ * A super like is a like that tells the other person first, so it is its own
+ * decision rather than a flag on a like.
+ */
+export type Decision = 'like' | 'pass' | 'superlike';
+
+/** One entry in the undo stack behind the rewind button. */
+export type DecisionRecord = {
+  profileId: string;
+  decision: Decision;
+};
 
 /**
  * Reasons someone can report a profile.

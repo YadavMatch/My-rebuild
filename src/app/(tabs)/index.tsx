@@ -8,12 +8,12 @@ import { SwipeDeck } from '@/components/swipe-deck';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useDecisions } from '@/store/decisions';
-import { fetchDeck } from '@/services';
+import { fetchDeck, getProfileSync } from '@/services';
 import type { Decision, Profile } from '@/types';
 
 export default function DiscoverScreen() {
   const router = useRouter();
-  const { excludedIds, state, like, pass } = useDecisions();
+  const { excludedIds, state, like, superLike, pass, undo, canUndo } = useDecisions();
   const [deck, setDeck] = useState<Profile[] | undefined>(undefined);
 
   // Load once storage has been read, so the deck is not built from an empty
@@ -56,14 +56,18 @@ export default function DiscoverScreen() {
         return;
       }
 
-      like(profile.id)
+      const register = decision === 'superlike' ? superLike : like;
+
+      register(profile.id)
         .then((conversationId) => {
           if (!conversationId) {
             return;
           }
           Alert.alert(
             `You matched with ${profile.name}`,
-            'They liked you too. Say something.',
+            decision === 'superlike'
+              ? 'Your super like went straight to them, and they liked you back.'
+              : 'They liked you too. Say something.',
             [
               { text: 'Later', style: 'cancel' },
               {
@@ -75,8 +79,21 @@ export default function DiscoverScreen() {
         })
         .catch(() => {});
     },
-    [like, pass, router],
+    [like, superLike, pass, router],
   );
+
+  const handleUndo = useCallback(() => {
+    const restoredId = undo();
+    if (!restoredId) {
+      return;
+    }
+    const profile = getProfileSync(restoredId);
+    if (!profile) {
+      return;
+    }
+    // Back on top of the deck, where it was before the swipe.
+    setDeck((current) => (current ? [profile, ...current.filter((p) => p.id !== profile.id)] : current));
+  }, [undo]);
 
   const handleOpenProfile = useCallback(
     (profileId: string) => {
@@ -106,6 +123,8 @@ export default function DiscoverScreen() {
             profiles={deck}
             onDecision={handleDecision}
             onOpenProfile={handleOpenProfile}
+            onUndo={handleUndo}
+            canUndo={canUndo}
           />
         )}
       </SafeAreaView>

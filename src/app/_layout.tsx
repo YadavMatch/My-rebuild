@@ -22,6 +22,7 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: theme.background },
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="profile/[id]" options={{ title: '' }} />
             <Stack.Screen name="chat/[id]" options={{ title: '' }} />
             <Stack.Screen
