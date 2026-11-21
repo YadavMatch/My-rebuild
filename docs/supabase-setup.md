@@ -41,13 +41,40 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-### Enable PostGIS first
+### PostGIS
 
-The migration starts with `create extension if not exists postgis`. On most
-Supabase projects that works as-is. If it complains, enable **postgis** under
-**Database → Extensions** and run the migration again.
+The migration installs it into the `extensions` schema, which is where
+Supabase expects extensions to live, and puts that schema on the search path
+for the rest of the file. You should not need to do anything by hand. If the
+extension line fails on your plan, enable **postgis** under
+**Database → Extensions** and run the migration again — it is transactional,
+so the failed attempt left nothing behind.
 
-## 3. Turn on phone sign-in
+## 3. Check it landed
+
+Paste `supabase/tests/verify_on_supabase.sql` into the SQL editor and run it.
+It writes nothing — it inspects the catalogue and prints a row per property:
+
+```
+ #  |                           check                            | result
+----+------------------------------------------------------------+--------
+  1 | PostGIS installed                                          | PASS
+  3 | Row-level security on every public table                   | PASS
+  9 | Clients CANNOT update profiles.verified                    | PASS
+ 10 | Clients CAN still update profiles.bio                      | PASS
+ 11 | Clients CANNOT update entitlements (no Premium self-grant) | PASS
+ ...
+```
+
+Every row should say PASS. If any says FAIL, send me the output rather than
+pointing the app at the project — a FAIL on rows 9 to 12 means a client could
+grant itself a verified badge or Premium.
+
+If you run the migration twice it refuses with
+`NearMatch schema is already applied to this database. Nothing was changed.`
+rather than a confusing duplicate-object error, and changes nothing.
+
+## 4. Turn on phone sign-in
 
 **Authentication → Providers → Phone.**
 
@@ -60,7 +87,7 @@ is not same-day.
 For development you can leave phone off and use email sign-in, which needs no
 provider.
 
-## 4. Send me two values
+## 5. Send me two values
 
 From **Project Settings → API**:
 

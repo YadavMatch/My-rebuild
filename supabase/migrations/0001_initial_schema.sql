@@ -15,9 +15,31 @@
 
 begin;
 
--- Extensions: postgis for proximity, pgcrypto for uuids.
-create extension if not exists postgis;
-create extension if not exists pgcrypto;
+-- Fail fast and legibly if this has already been applied. Without it a
+-- second run dies on a duplicate type or table, which reads like a broken
+-- migration rather than one that is already in place.
+do $$
+begin
+  if exists (
+    select 1 from pg_tables where schemaname = 'public' and tablename = 'profiles'
+  ) then
+    raise exception
+      'NearMatch schema is already applied to this database. Nothing was changed.';
+  end if;
+end
+$$;
+
+
+-- Extensions. On Supabase these belong in the `extensions` schema rather
+-- than `public`; installing PostGIS into public is discouraged there and
+-- makes the schema harder to dump and restore.
+create schema if not exists extensions;
+create extension if not exists postgis  with schema extensions;
+create extension if not exists pgcrypto with schema extensions;
+
+-- The geography type and st_dwithin come from the extensions schema, so it
+-- has to be on the search path for the rest of this file to resolve them.
+set local search_path = public, extensions;
 
 -- ---------------------------------------------------------------- profiles
 
@@ -264,6 +286,9 @@ create trigger swipes_create_match
 create or replace function discover_feed(max_distance_m int default 50000, lim int default 30)
 returns setof profiles
 language sql stable
+-- Pinned, not inherited: st_dwithin lives in extensions, and a function that
+-- depends on the caller's search_path is both fragile and a security concern.
+set search_path = public, extensions
 as $$
   with me as (select geo from profiles where id = auth.uid())
   select p.*
