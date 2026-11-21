@@ -12,7 +12,7 @@ import { useDecisions } from '@/store/decisions';
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { reset, showWelcomeAgain } = useDecisions();
+  const { state, reset, showWelcomeAgain, setPremium } = useDecisions();
 
   function confirmWithdrawConsent() {
     Alert.alert(
@@ -129,6 +129,20 @@ export default function SettingsScreen() {
                     },
                   ],
                 );
+              }}
+            />
+            <SettingsRow
+              emoji="🧪"
+              label={
+                state.premium
+                  ? 'Simulate Premium: on — tap to turn off'
+                  : 'Simulate Premium: off — tap to turn on'
+              }
+              onPress={() => {
+                // There is no billing, so this is the only way to exercise
+                // the unlimited-likes path. Labelled as a simulation rather
+                // than dressed up as a real subscription.
+                setPremium(!state.premium).catch(() => {});
               }}
             />
             <SettingsRow

@@ -5,17 +5,20 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useDecisions } from '@/store/decisions';
+import { FREE_DAILY_LIKES } from '@/types';
 
 const BENEFITS = [
-  { emoji: '💛', label: 'Unlimited likes' },
+  { emoji: '💛', label: `Unlimited likes — free accounts get ${FREE_DAILY_LIKES} a day` },
+  { emoji: '🚀', label: 'Priority likes — you appear first for people you like' },
   { emoji: '👀', label: 'See everyone who liked you' },
   { emoji: '⚡', label: 'Daily 30-minute Profile Boost' },
-  { emoji: '🚀', label: 'Priority placement in Discover' },
   { emoji: '✓', label: 'Browse verified profiles only' },
 ] as const;
 
 export default function PremiumScreen() {
   const theme = useTheme();
+  const { state, likesRemaining } = useDecisions();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -30,6 +33,16 @@ export default function PremiumScreen() {
               👑
             </Text>
             <ThemedText style={styles.headline}>Get more matches</ThemedText>
+          </View>
+
+          <View style={[styles.status, { backgroundColor: theme.verifiedPale }]}>
+            <ThemedText style={[styles.statusText, { color: theme.verified }]}>
+              {state.premium
+                ? 'You have Premium — unlimited likes.'
+                : likesRemaining === 0
+                  ? 'You have used all your likes today.'
+                  : `You have ${likesRemaining} of ${FREE_DAILY_LIKES} likes left today.`}
+            </ThemedText>
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
@@ -93,6 +106,17 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 38,
     fontWeight: '700',
+  },
+  status: {
+    borderRadius: Radius.xl,
+    padding: Spacing.three,
+    alignItems: 'center',
+  },
+  statusText: {
+    fontFamily: Fonts.rounded,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   card: {
     borderRadius: Radius.card,

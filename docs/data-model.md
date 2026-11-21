@@ -324,7 +324,16 @@ language sql stable
 as $$
   with me as (select geo from profiles where id = auth.uid())
   select p.*
-  from profiles p, me
+  from profiles p
+  cross join me
+  left join swipes inbound
+    on inbound.actor_id = p.id
+   and inbound.target_id = auth.uid()
+   and inbound.decision <> 'pass'
+  left join entitlements e
+    on e.user_id = p.id
+   and e.tier = 'premium'
+   and (e.expires_at is null or e.expires_at > now())
   where p.id <> auth.uid()
     and p.deleted_at is null
     and p.is_discoverable
@@ -333,7 +342,17 @@ as $$
     )
     and not is_blocked(auth.uid(), p.id)
     and st_dwithin(p.geo, me.geo, max_distance_m)
-  order by p.geo <-> me.geo, p.last_active_at desc
+  order by
+    -- Priority likes: someone who has already liked you comes first, and a
+    -- Premium liker comes first among those. This is what Premium buys on
+    -- the *other* person's screen, which is the half most apps leave vague.
+    case
+      when inbound.id is not null and e.user_id is not null then 0
+      when inbound.id is not null then 1
+      else 2
+    end,
+    p.geo <-> me.geo,
+    p.last_active_at desc
   limit lim;
 $$;
 ```
@@ -343,6 +362,10 @@ Filtering happens in the database. The full user table never reaches a device.
 Distance sorts the feed but is never returned — the client gets the coarse
 `location_label` only. A precise distance that updates as people move lets
 someone trilaterate a home address.
+
+The ordering leaks nothing: the card looks identical whether that person
+liked you or not, so being shown early does not tell you who is interested.
+Only the position changes, and position alone is not readable.
 
 ---
 
@@ -357,12 +380,21 @@ declare
   used int;
   cap  int;
 begin
+  -- Passes are never capped. Without this the trigger fires on every swipe,
+  -- so once the daily likes are gone you cannot pass either and the deck
+  -- traps you on a card you do not want.
+  if new.decision = 'pass' then
+    return new;
+  end if;
+
   select case when e.tier = 'premium' and (e.expires_at is null or e.expires_at > now())
-              then 2147483647 else 60 end
+              then 2147483647 else 6 end
     into cap
     from entitlements e where e.user_id = new.actor_id;
 
-  cap := coalesce(cap, 60);
+  -- No entitlements row means free. Defaulting the other way would hand out
+  -- unlimited likes to anyone whose row failed to create.
+  cap := coalesce(cap, 6);
 
   select count(*) into used
   from swipes
@@ -383,8 +415,15 @@ create trigger swipes_rate_limit
   for each row execute function enforce_swipe_limit();
 ```
 
+Six likes a day on the free tier, unlimited on Premium.
+
 This is also the Premium gate: the free cap is the thing a subscription
 lifts, so the limit and the paywall are one mechanism rather than two.
+
+Six is deliberately tight, and it is the same shape as Hinge's model rather
+than Tinder's — it fits an app whose pitch is real intentions rather than
+volume. The number lives in one place here, so changing it later is a single
+edit and does not need a release.
 
 Message flooding wants a similar check, plus a short per-minute window.
 
@@ -428,8 +467,17 @@ role — is exactly as written here.
 | Blocking hides the conversation from **both** sides at once | 0 and 0 |
 | A blocked person cannot see the other profile | 0 rows |
 | A blocked person cannot send into the match | insert matched no visible row |
-| The 61st like in a day is refused | `daily_like_limit_reached` |
+| The 7th like in a day is refused | `daily_like_limit_reached` |
+| A pass at the cap still succeeds | inserted |
 | Premium lifts the cap | the next like succeeds |
+| `discover_feed` runs with the priority-likes ordering | returns rows |
+
+Running it caught a bug worth keeping in mind: the first version of the
+rate-limit trigger fired on every swipe, so once the daily likes were gone a
+free account could not **pass** either — the deck would trap you on a card
+you did not want. Reading the function, it looks right; the counter only
+counts likes. The fault is that it raises before checking what the new row
+is. That is the kind of thing only execution finds.
 
 The blocking result is the one worth dwelling on. A single `is_blocked`
 function, referenced by each policy, made an existing conversation

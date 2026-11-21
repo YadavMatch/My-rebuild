@@ -63,7 +63,9 @@ representations rather than marketing.
 | One-tap report on profile | **Done** | Moderation queue to receive it |
 | One-tap report on conversation | Not built | Report entry point in chat |
 | Swipe and message rate limits | Not built | Server-side counters; client limits are advisory only |
-| Premium: unlimited likes | Not built | Daily like cap, then billing |
+| Free tier: 6 likes a day | Not built | Daily like cap |
+| Premium: unlimited likes | Not built | The cap, then billing |
+| Premium: priority likes | Not built | Feed ordering; needs real users |
 | Premium: see who liked you | Not built | Backend storing inbound likes |
 
 ## Build order
@@ -81,4 +83,5 @@ Sequenced so each step unblocks the next rather than by feature glamour.
 6. **Location and proximity sorting.**
 7. **Selfie verification** — needs a provider; design it to verify and
    discard, as the copy promises.
-8. **Premium** — daily like cap, inbound likes, then billing.
+8. **Premium** — the 6-a-day free cap, unlimited and priority placement for
+   subscribers, inbound likes, then billing.
