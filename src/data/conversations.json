@@ -1,32 +1,28 @@
 [
   {
     "id": "c1",
-    "profileId": "p2",
-    "matchedAt": "2026-11-18T19:12:00.000Z",
+    "profileId": "p1",
+    "matchedAt": "2026-11-21T09:12:00.000Z",
     "messages": [
-      { "id": "c1-m1", "conversationId": "c1", "senderId": "p2", "text": "Right, I have to know — where is the good coffee place?", "sentAt": "2026-11-18T19:40:00.000Z" },
-      { "id": "c1-m2", "conversationId": "c1", "senderId": "me", "text": "I could tell you, but then it would be busy and I would have to find another one.", "sentAt": "2026-11-18T19:52:00.000Z" },
-      { "id": "c1-m3", "conversationId": "c1", "senderId": "p2", "text": "Fair. I respect the operational security.", "sentAt": "2026-11-18T19:55:00.000Z" },
-      { "id": "c1-m4", "conversationId": "c1", "senderId": "p2", "text": "Counter-offer: I am cooking on Sunday and there will be far too much of it.", "sentAt": "2026-11-18T19:56:00.000Z" },
-      { "id": "c1-m5", "conversationId": "c1", "senderId": "me", "text": "That is a strong opening move and you know it.", "sentAt": "2026-11-18T20:10:00.000Z" }
+      { "id": "c1-m1", "conversationId": "c1", "senderId": "p1", "text": "Hey! We matched 🎉 Chai or coffee — pick a side.", "sentAt": "2026-11-21T09:40:00.000Z" }
     ]
   },
   {
     "id": "c2",
     "profileId": "p5",
-    "matchedAt": "2026-11-19T09:30:00.000Z",
+    "matchedAt": "2026-11-20T09:30:00.000Z",
     "messages": [
-      { "id": "c2-m1", "conversationId": "c2", "senderId": "me", "text": "Your risograph prints are genuinely lovely. Do you sell them anywhere?", "sentAt": "2026-11-19T10:02:00.000Z" },
-      { "id": "c2-m2", "conversationId": "c2", "senderId": "p5", "text": "Thank you! I do a market stall once a month and sell about four of them.", "sentAt": "2026-11-19T11:15:00.000Z" },
-      { "id": "c2-m3", "conversationId": "c2", "senderId": "p5", "text": "The other forty live in a drawer, judging me.", "sentAt": "2026-11-19T11:15:30.000Z" }
+      { "id": "c2-m1", "conversationId": "c2", "senderId": "me", "text": "Your prints are genuinely lovely. Do you sell them anywhere?", "sentAt": "2026-11-20T10:02:00.000Z" },
+      { "id": "c2-m2", "conversationId": "c2", "senderId": "p5", "text": "Thank you! I do a market stall once a month and sell about four of them.", "sentAt": "2026-11-20T11:15:00.000Z" },
+      { "id": "c2-m3", "conversationId": "c2", "senderId": "p5", "text": "The other forty live in a drawer, judging me.", "sentAt": "2026-11-20T11:16:00.000Z" }
     ]
   },
   {
     "id": "c3",
     "profileId": "p8",
-    "matchedAt": "2026-11-20T21:05:00.000Z",
+    "matchedAt": "2026-11-19T21:05:00.000Z",
     "messages": [
-      { "id": "c3-m1", "conversationId": "c3", "senderId": "p8", "text": "Night shift, so I am wide awake and the crossword is beating me.", "sentAt": "2026-11-21T02:40:00.000Z" }
+      { "id": "c3-m1", "conversationId": "c3", "senderId": "p8", "text": "Night shift, so I am wide awake and the crossword is beating me.", "sentAt": "2026-11-20T02:40:00.000Z" }
     ]
   }
 ]

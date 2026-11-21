@@ -1,7 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -14,10 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { InterestChip, VerifiedBadge } from '@/components/badges';
 import { ThemedText } from '@/components/themed-text';
 import { ProfilePhoto } from '@/components/profile-photo';
 import { project } from '@/components/worklets';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import type { Decision, Profile } from '@/types';
 
 /** Fraction of the screen width a projected swipe must pass to commit. */
@@ -180,50 +180,76 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
     opacity: interpolate(x.get(), [-commitDistance, 0], [1, 0], Extrapolation.CLAMP),
   }));
 
+  const prompt = profile.prompts[0];
+
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.card, { backgroundColor: colors.backgroundElement }, cardStyle]}>
-        <ProfilePhoto id={profile.id} name={profile.name} style={StyleSheet.absoluteFill} initialSize={160} />
+      <Animated.View
+        style={[styles.card, { backgroundColor: colors.backgroundElement }, cardStyle]}>
+        <View style={[styles.photo, { backgroundColor: colors.photoBackground }]}>
+          <ProfilePhoto
+            emoji={profile.emoji}
+            name={profile.name}
+            size={88}
+            style={styles.photoInner}
+            background="transparent"
+          />
+        </View>
 
         <Animated.View
           style={[styles.badge, styles.likeBadge, { borderColor: colors.like }, likeBadgeStyle]}
           pointerEvents="none">
-          <ThemedText type="smallBold" style={[styles.badgeText, { color: colors.like }]}>
-            LIKE
-          </ThemedText>
+          <ThemedText style={[styles.badgeText, { color: colors.like }]}>LIKE</ThemedText>
         </Animated.View>
 
         <Animated.View
           style={[styles.badge, styles.passBadge, { borderColor: colors.pass }, passBadgeStyle]}
           pointerEvents="none">
-          <ThemedText type="smallBold" style={[styles.badgeText, { color: colors.pass }]}>
-            PASS
-          </ThemedText>
+          <ThemedText style={[styles.badgeText, { color: colors.pass }]}>PASS</ThemedText>
         </Animated.View>
 
-        {/*
-          A gradient rather than a solid block: a hard edge across the middle
-          of a photo looks like a bug, and the fade keeps the text legible
-          whatever is behind it.
-        */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.88)']}
-          locations={[0, 0.45, 1]}
-          style={styles.scrim}>
-          <ThemedText style={styles.name} accessibilityRole="header">
-            {profile.name}, {profile.age}
+        <Pressable
+          onPress={() => onOpenProfile(profile.id)}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${profile.name}'s full profile`}
+          style={styles.body}>
+          <View style={styles.nameRow}>
+            <ThemedText style={styles.name}>
+              {profile.name}
+              <ThemedText style={[styles.age, { color: colors.textSecondary }]}>
+                , {profile.age}
+              </ThemedText>
+            </ThemedText>
+            {profile.verified ? (
+              <VerifiedBadge label={`${profile.name} is verified`} />
+            ) : null}
+          </View>
+
+          <ThemedText style={[styles.proximity, { color: colors.textSecondary }]}>
+            {profile.proximity}
           </ThemedText>
-          <ThemedText type="small" style={styles.meta}>
-            {profile.jobTitle} · {profile.location} · {profile.distanceKm} km away
+
+          <ThemedText style={styles.bio} numberOfLines={2}>
+            {profile.bio}
           </ThemedText>
-          <ThemedText
-            type="small"
-            style={styles.tapHint}
-            onPress={() => onOpenProfile(profile.id)}
-            accessibilityRole="link">
-            Read {profile.name}&apos;s full profile
-          </ThemedText>
-        </LinearGradient>
+
+          {prompt ? (
+            <View style={[styles.prompt, { borderColor: colors.border }]}>
+              <ThemedText style={[styles.promptQuestion, { color: colors.textSecondary }]}>
+                {prompt.question}
+              </ThemedText>
+              <ThemedText style={styles.promptAnswer} numberOfLines={2}>
+                {prompt.answer}
+              </ThemedText>
+            </View>
+          ) : null}
+
+          <View style={styles.chips}>
+            {profile.interests.slice(0, 3).map((interest) => (
+              <InterestChip key={interest} label={interest} />
+            ))}
+          </View>
+        </Pressable>
       </Animated.View>
     </GestureDetector>
   );
@@ -234,48 +260,96 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: Radius.card,
     overflow: 'hidden',
-    justifyContent: 'flex-end',
   },
-  badge: {
-    position: 'absolute',
-    top: Spacing.four,
-    borderWidth: 3,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  photo: {
+    height: 165,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  likeBadge: {
-    left: Spacing.four,
-    transform: [{ rotateZ: '-12deg' }],
+  photoInner: {
+    width: '100%',
+    height: '100%',
   },
-  passBadge: {
-    right: Spacing.four,
-    transform: [{ rotateZ: '12deg' }],
-  },
-  badgeText: {
-    fontSize: 20,
-    letterSpacing: 2,
-  },
-  scrim: {
+  body: {
+    flex: 1,
     paddingHorizontal: Spacing.four,
-    // Tall enough for the fade to be gradual rather than a visible band.
-    paddingTop: Spacing.six,
+    paddingTop: Spacing.three,
     paddingBottom: Spacing.four,
-    gap: Spacing.one,
+    gap: Spacing.two,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   name: {
+    fontFamily: Fonts.rounded,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '700',
-    color: '#ffffff',
   },
-  meta: {
-    color: 'rgba(255, 255, 255, 0.85)',
+  age: {
+    fontFamily: Fonts.rounded,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '600',
   },
-  tapHint: {
-    color: '#ffffff',
-    textDecorationLine: 'underline',
-    marginTop: Spacing.two,
+  proximity: {
+    fontFamily: Fonts.rounded,
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: -Spacing.one,
+  },
+  bio: {
+    fontFamily: Fonts.rounded,
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  prompt: {
+    borderWidth: 1.5,
+    borderRadius: Radius.lg,
+    padding: Spacing.three,
+    gap: Spacing.half,
+  },
+  promptQuestion: {
+    fontFamily: Fonts.rounded,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  promptAnswer: {
+    fontFamily: Fonts.rounded,
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '700',
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  badge: {
+    position: 'absolute',
+    top: Spacing.three,
+    borderWidth: 3,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    zIndex: 2,
+  },
+  likeBadge: {
+    left: Spacing.three,
+    transform: [{ rotateZ: '-12deg' }],
+  },
+  passBadge: {
+    right: Spacing.three,
+    transform: [{ rotateZ: '12deg' }],
+  },
+  badgeText: {
+    fontFamily: Fonts.rounded,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
 });

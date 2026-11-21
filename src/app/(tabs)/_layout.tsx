@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 
-import AppTabs from '@/components/app-tabs';
+import { TabBar } from '@/components/tab-bar';
 import { useDecisions } from '@/store/decisions';
 
 export default function TabLayout() {
@@ -16,5 +16,17 @@ export default function TabLayout() {
     return <Redirect href="/welcome" />;
   }
 
-  return <AppTabs />;
+  return (
+    <Tabs
+      // Tabs are peers. Sliding between them implies a depth that is not
+      // there, and the user pays for it dozens of times a session.
+      screenOptions={{ headerShown: false, animation: 'none' }}
+      tabBar={(props) => <TabBar {...props} />}>
+      <Tabs.Screen name="index" options={{ title: 'Discover' }} />
+      <Tabs.Screen name="likes" options={{ title: 'Likes' }} />
+      <Tabs.Screen name="premium" options={{ title: 'Premium' }} />
+      <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+    </Tabs>
+  );
 }

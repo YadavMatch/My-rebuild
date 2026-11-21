@@ -1,11 +1,10 @@
 import { useCallback, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { PressableScale } from '@/components/pressable-scale';
 import { ProfilePhoto } from '@/components/profile-photo';
 import { SwipeCard, type SwipeCardHandle } from '@/components/swipe-card';
-import { ThemedText } from '@/components/themed-text';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Decision, Profile } from '@/types';
 
@@ -17,19 +16,19 @@ type Props = {
   profiles: Profile[];
   onDecision: (profile: Profile, decision: Decision) => void;
   onOpenProfile: (profileId: string) => void;
-  onUndo: () => void;
-  canUndo: boolean;
+  /** Opens a conversation without deciding, the middle action. */
+  onMessage: (profile: Profile) => void;
 };
 
-export function SwipeDeck({ profiles, onDecision, onOpenProfile, onUndo, canUndo }: Props) {
+export function SwipeDeck({ profiles, onDecision, onOpenProfile, onMessage }: Props) {
   const theme = useTheme();
   const topCard = useRef<SwipeCardHandle>(null);
 
   const top = profiles[0];
 
-  // The buttons drive the same exit animation and the same callback as a real
-  // swipe. Swipe-only would make the app unusable with a screen reader or
-  // with limited motor control, so these are not a secondary affordance.
+  // The buttons drive the same exit animation and the same callback as a
+  // real swipe. Swipe-only would make the app unusable with a screen reader
+  // or with limited motor control, so these are not a secondary affordance.
   const handleButton = useCallback((decision: Decision) => {
     topCard.current?.swipe(decision);
   }, []);
@@ -64,61 +63,59 @@ export function SwipeDeck({ profiles, onDecision, onOpenProfile, onUndo, canUndo
                   styles.behind,
                   {
                     backgroundColor: theme.backgroundElement,
-                    transform: [{ scale: 1 - index * 0.04 }, { translateY: -index * 12 }],
+                    transform: [{ scale: 1 - index * 0.03 }, { translateY: -index * 10 }],
                   },
                 ]}
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants">
-                <ProfilePhoto
-                  id={profile.id}
-                  name={profile.name}
-                  style={StyleSheet.absoluteFill}
-                  initialSize={160}
-                />
+                <View style={[styles.behindPhoto, { backgroundColor: theme.photoBackground }]}>
+                  <ProfilePhoto
+                    emoji={profile.emoji}
+                    name={profile.name}
+                    size={88}
+                    background="transparent"
+                    style={styles.behindPhotoInner}
+                  />
+                </View>
               </View>
             ),
           )}
       </View>
 
       {/*
-        Every action is a labelled button, not just a gesture. Swiping stays
-        the fast path, but nothing is reachable *only* by swiping — that would
-        lock out anyone using a screen reader or with limited motor control,
-        and it hides half the app from someone who has never used it.
+        Three actions, as in the design. Every one is a labelled button, so
+        nothing is reachable only by swiping — that would lock out anyone
+        using a screen reader or with limited motor control.
       */}
-      <View style={styles.actions} accessibilityRole="toolbar">
-        <ActionButton
-          glyph="↺"
-          label="Rewind"
-          colour={theme.textSecondary}
-          disabled={!canUndo}
-          onPress={onUndo}
-          hint={canUndo ? 'Take back your last swipe' : 'Nothing to take back yet'}
-        />
+      <View style={styles.actions}>
         <ActionButton
           glyph="✕"
-          label="Pass"
+          size={60}
           colour={theme.pass}
+          background={theme.verifiedPale}
           disabled={!top}
           onPress={() => handleButton('pass')}
-          hint={top ? `Pass on ${top.name}` : 'Pass'}
+          label={top ? `Pass on ${top.name}` : 'Pass'}
         />
         <ActionButton
-          glyph="★"
-          label="Super like"
-          colour={theme.accent}
+          glyph="💬"
+          size={52}
+          colour={theme.textSecondary}
+          background={theme.backgroundElement}
+          borderColour={theme.border}
           disabled={!top}
-          onPress={() => handleButton('superlike')}
-          hint={top ? `Super like ${top.name}, they are told straight away` : 'Super like'}
+          onPress={() => (top ? onMessage(top) : undefined)}
+          label={top ? `Message ${top.name}` : 'Message'}
         />
         <ActionButton
           glyph="♥"
-          label="Like"
-          colour={theme.like}
+          size={68}
+          colour={theme.onAccent}
+          background={theme.accent}
           disabled={!top}
           onPress={() => handleButton('like')}
-          hint={top ? `Like ${top.name}` : 'Like'}
+          label={top ? `Like ${top.name}` : 'Like'}
         />
       </View>
     </View>
@@ -127,50 +124,45 @@ export function SwipeDeck({ profiles, onDecision, onOpenProfile, onUndo, canUndo
 
 function ActionButton({
   glyph,
-  label,
+  size,
   colour,
+  background,
+  borderColour,
   disabled,
   onPress,
-  hint,
+  label,
 }: {
   glyph: string;
-  label: string;
+  size: number;
   colour: string;
+  background: string;
+  borderColour?: string;
   disabled: boolean;
   onPress: () => void;
-  hint: string;
+  label: string;
 }) {
-  const theme = useTheme();
-
   return (
     <PressableScale
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={hint}
+      accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      style={styles.action}>
-      <View
-        style={[
-          styles.actionCircle,
-          {
-            borderColor: disabled ? theme.border : colour,
-            backgroundColor: theme.background,
-            opacity: disabled ? 0.45 : 1,
-          },
-        ]}>
-        <ThemedText
-          style={[styles.actionGlyph, { color: disabled ? theme.textSecondary : colour }]}
-          allowFontScaling={false}>
-          {glyph}
-        </ThemedText>
-      </View>
-      {/* The label is always visible. An icon alone is a guess for the user. */}
-      <ThemedText
-        type="small"
-        style={[styles.actionLabel, { color: disabled ? theme.textSecondary : theme.text }]}>
-        {label}
-      </ThemedText>
+      style={[
+        styles.action,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: background,
+          borderColor: borderColour ?? 'transparent',
+          borderWidth: borderColour ? 1.5 : 0,
+          opacity: disabled ? 0.45 : 1,
+        },
+      ]}>
+      <Text style={[styles.actionGlyph, { color: colour, fontSize: size * 0.4 }]} allowFontScaling={false}>
+        {glyph}
+      </Text>
     </PressableScale>
   );
 }
@@ -178,7 +170,7 @@ function ActionButton({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
   deck: {
     flex: 1,
@@ -190,29 +182,25 @@ const styles = StyleSheet.create({
     transitionDuration: '220ms',
     transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
   },
+  behindPhoto: {
+    height: 165,
+  },
+  behindPhotoInner: {
+    width: '100%',
+    height: '100%',
+  },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.four,
   },
   action: {
-    alignItems: 'center',
-    gap: Spacing.one,
-    minWidth: 64,
-  },
-  actionCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.pill,
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionGlyph: {
-    fontSize: 24,
-    lineHeight: 30,
-  },
-  actionLabel: {
-    fontSize: 12,
+    fontFamily: Fonts.rounded,
+    fontWeight: '700',
   },
 });

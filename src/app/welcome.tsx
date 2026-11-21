@@ -8,7 +8,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { WelcomeEffects } from '@/components/welcome-effects';
 import { APP_NAME, APP_TAGLINE } from '@/constants/app';
-import { Radius, Spacing } from '@/constants/theme';
+import { Fonts, LOGO_FONT, Radius, Spacing } from '@/constants/theme';
 import { useDecisions } from '@/store/decisions';
 
 export default function WelcomeScreen() {
@@ -29,9 +29,9 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#2B1055', '#7B2D8E', '#E0245E']}
+        colors={['#F3F2E8', '#F2DDD8', '#D1674A']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0.6, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
@@ -62,7 +62,7 @@ export default function WelcomeScreen() {
           glitch rather than as ambience.
         */}
         <LinearGradient
-          colors={['transparent', 'rgba(20, 5, 40, 0.55)']}
+          colors={['transparent', 'rgba(120, 52, 34, 0.35)']}
           style={styles.actionsScrim}
           pointerEvents="none"
         />
@@ -115,7 +115,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2B1055',
+    backgroundColor: '#F3F2E8',
   },
   safeArea: {
     flex: 1,
@@ -145,14 +145,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   title: {
-    fontSize: 52,
-    lineHeight: 60,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontFamily: LOGO_FONT,
+    fontSize: 46,
+    lineHeight: 68,
+    color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -1,
   },
   tagline: {
+    fontFamily: Fonts.rounded,
+    fontWeight: '600',
     fontSize: 17,
     lineHeight: 24,
     color: 'rgba(255, 255, 255, 0.85)',
@@ -180,7 +181,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   primaryLabel: {
-    color: '#E0245E',
+    fontFamily: Fonts.rounded,
+    color: '#D1674A',
     fontSize: 16,
   },
   secondaryButton: {
@@ -188,7 +190,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   secondaryLabel: {
-    color: '#ffffff',
+    fontFamily: Fonts.rounded,
+    color: '#FFFFFF',
     fontSize: 16,
   },
   skip: {

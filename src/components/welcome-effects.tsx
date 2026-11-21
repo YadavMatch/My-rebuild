@@ -92,7 +92,11 @@ function Orb({ index, reducedMotion }: { index: number; reducedMotion: boolean }
   );
 }
 
-const ORB_COLOURS = ['rgba(255, 92, 138, 0.45)', 'rgba(124, 77, 255, 0.38)', 'rgba(255, 159, 67, 0.3)'];
+const ORB_COLOURS = [
+  'rgba(209, 103, 74, 0.35)',
+  'rgba(62, 142, 128, 0.22)',
+  'rgba(242, 221, 216, 0.6)',
+];
 
 /** A heart that rises up the screen and fades out, then starts again. */
 function Heart({ index, reducedMotion }: { index: number; reducedMotion: boolean }) {

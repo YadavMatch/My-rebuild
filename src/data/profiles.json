@@ -1,73 +1,83 @@
 [
   {
     "id": "p1",
-    "name": "Aisha",
-    "age": 29,
-    "jobTitle": "Architect",
-    "location": "Shoreditch",
-    "distanceKm": 3,
-    "bio": "Drawing buildings by day, failing at pottery by night. Will take you to the good coffee place, not the busy one.",
-    "interests": ["Pottery", "Cycling", "Brutalism", "Filter coffee", "Jazz"],
+    "name": "Ananya",
+    "age": 24,
+    "jobTitle": "Graphic designer",
+    "location": "Indiranagar",
+    "proximity": "Nearby",
+    "emoji": "🌸",
+    "verified": true,
+    "bio": "Chai over coffee, always. Looking for someone to explore the city's quieter corners with.",
+    "interests": ["Coffee", "Travel", "Art"],
     "prompts": [
-      { "id": "p1-a", "question": "The way to win me over is", "answer": "Send me a photo of a staircase you thought was beautiful. I am completely serious." },
-      { "id": "p1-b", "question": "My simple pleasures", "answer": "The first ten minutes of a cycle ride before I remember I am unfit." },
-      { "id": "p1-c", "question": "I geek out on", "answer": "Concrete. Specifically the Barbican, which I will defend at length." }
+      { "id": "p1-a", "question": "My simple pleasures", "answer": "Rainy evenings, filter coffee and old Hindi songs 🎶" },
+      { "id": "p1-b", "question": "The way to win me over is", "answer": "Take me somewhere with a view and let me take far too many photos." },
+      { "id": "p1-c", "question": "I geek out on", "answer": "Typography. I will absolutely judge a menu's font and then apologise." }
     ]
   },
   {
     "id": "p2",
-    "name": "Tomás",
-    "age": 33,
-    "jobTitle": "Chef de partie",
-    "location": "Peckham",
-    "distanceKm": 7,
-    "bio": "I cook for a living so I will absolutely judge where we eat, but kindly. Sunday roasts are my love language.",
-    "interests": ["Cooking", "Record shops", "Football", "Hiking", "Hot sauce"],
+    "name": "Rohan",
+    "age": 28,
+    "jobTitle": "Chef",
+    "location": "Koramangala",
+    "proximity": "2 km away",
+    "emoji": "🍜",
+    "verified": true,
+    "bio": "I cook for a living so I will judge where we eat, but kindly. Sunday breakfasts are sacred.",
+    "interests": ["Cooking", "Records", "Football"],
     "prompts": [
-      { "id": "p2-a", "question": "My most controversial opinion", "answer": "Coriander is not divisive, you are all just wrong." },
+      { "id": "p2-a", "question": "My most controversial opinion", "answer": "Coriander is not divisive. You are all simply wrong." },
       { "id": "p2-b", "question": "A perfect Sunday looks like", "answer": "Market at nine, cooking by noon, asleep on the sofa by four." },
-      { "id": "p2-c", "question": "Dating me is like", "answer": "Having a friend who always knows a place. The place is usually a bakery." }
+      { "id": "p2-c", "question": "Dating me is like", "answer": "Having a friend who always knows a place. It is usually a bakery." }
     ]
   },
   {
     "id": "p3",
-    "name": "Priya",
-    "age": 27,
-    "jobTitle": "Vet nurse",
-    "location": "Walthamstow",
-    "distanceKm": 11,
+    "name": "Meera",
+    "age": 26,
+    "jobTitle": "Veterinarian",
+    "location": "Jayanagar",
+    "proximity": "Nearby",
+    "emoji": "🐕",
+    "verified": true,
     "bio": "I will show you photos of other people's dogs within four minutes of meeting you. Fair warning.",
-    "interests": ["Dogs", "Climbing", "Sci-fi", "Baking", "Sea swimming"],
+    "interests": ["Dogs", "Climbing", "Baking"],
     "prompts": [
       { "id": "p3-a", "question": "Two truths and a lie", "answer": "I have been bitten by a parrot, I can solve a Rubik's cube, I have never seen Titanic." },
-      { "id": "p3-b", "question": "I am looking for", "answer": "Someone who will do the cold water swim and complain the whole way, like me." },
-      { "id": "p3-c", "question": "My love language is", "answer": "Bringing you a pastry without asking what kind you wanted." }
+      { "id": "p3-b", "question": "I am looking for", "answer": "Someone who will do the early morning hike and complain the whole way, like me." },
+      { "id": "p3-c", "question": "My love language is", "answer": "Bringing you something sweet without asking what kind you wanted." }
     ]
   },
   {
     "id": "p4",
-    "name": "Dylan",
+    "name": "Arjun",
     "age": 31,
-    "jobTitle": "Secondary school teacher",
-    "location": "Hackney",
-    "distanceKm": 5,
-    "bio": "Teach history, play five-a-side badly, read more than I watch. Looking for someone to argue about films with.",
-    "interests": ["History", "Cinema", "Five-a-side", "Pub quizzes", "Vinyl"],
+    "jobTitle": "History teacher",
+    "location": "Malleshwaram",
+    "proximity": "5 km away",
+    "emoji": "📚",
+    "verified": false,
+    "bio": "Teach history, play football badly, read more than I watch. Looking for someone to argue about films with.",
+    "interests": ["History", "Cinema", "Quizzes"],
     "prompts": [
       { "id": "p4-a", "question": "I am weirdly attracted to", "answer": "People who finish the books they start. I have fourteen on the go." },
-      { "id": "p4-b", "question": "Best travel story", "answer": "Missed a train in Lisbon, stayed four more days, no regrets." },
-      { "id": "p4-c", "question": "Together we could", "answer": "Win the Tuesday quiz at the Mason's. I have the history round covered." }
+      { "id": "p4-b", "question": "Best travel story", "answer": "Missed a train in Jaipur, stayed four more days, no regrets at all." },
+      { "id": "p4-c", "question": "Together we could", "answer": "Win the Tuesday quiz. I have the history round completely covered." }
     ]
   },
   {
     "id": "p5",
-    "name": "Lena",
-    "age": 26,
+    "name": "Divya",
+    "age": 27,
     "jobTitle": "Illustrator",
-    "location": "New Cross",
-    "distanceKm": 9,
-    "bio": "Freelance, which means I am either very free or completely unavailable. Plants, risograph prints, long walks.",
-    "interests": ["Illustration", "Risograph", "Plants", "Long walks", "Tea"],
+    "location": "Richmond Town",
+    "proximity": "3 km away",
+    "emoji": "🎨",
+    "verified": true,
+    "bio": "Freelance, which means I am either very free or completely unavailable. Plants, prints, long walks.",
+    "interests": ["Illustration", "Plants", "Tea"],
     "prompts": [
       { "id": "p5-a", "question": "My simple pleasures", "answer": "A new sketchbook and absolutely no plan for it." },
       { "id": "p5-b", "question": "Do not hate me if I", "answer": "Take a photo of your hands. It is a drawing thing, not a weird thing." },
@@ -76,77 +86,87 @@
   },
   {
     "id": "p6",
-    "name": "Marcus",
-    "age": 35,
+    "name": "Kabir",
+    "age": 30,
     "jobTitle": "Physiotherapist",
-    "location": "Brixton",
-    "distanceKm": 8,
+    "location": "HSR Layout",
+    "proximity": "6 km away",
+    "emoji": "🏃",
+    "verified": true,
     "bio": "I fix people's backs and then tell them to stop sitting like that. Runner, slow cook, terrible singer.",
-    "interests": ["Running", "Slow cooking", "Karaoke", "Podcasts", "Gardening"],
+    "interests": ["Running", "Cooking", "Gardening"],
     "prompts": [
-      { "id": "p6-a", "question": "A life goal of mine", "answer": "Run a marathon on every continent. Currently one down, which is a start." },
+      { "id": "p6-a", "question": "A life goal of mine", "answer": "Run a marathon in every state. Currently two down, which is a start." },
       { "id": "p6-b", "question": "I will not shut up about", "answer": "My tomatoes. It has been a very good year for the tomatoes." },
       { "id": "p6-c", "question": "Pick my karaoke song", "answer": "Whatever you choose, I will do it badly and with total commitment." }
     ]
   },
   {
     "id": "p7",
-    "name": "Yuki",
-    "age": 30,
+    "name": "Nisha",
+    "age": 25,
     "jobTitle": "Sound engineer",
-    "location": "Deptford",
-    "distanceKm": 10,
+    "location": "Frazer Town",
+    "proximity": "Nearby",
+    "emoji": "🎧",
+    "verified": false,
     "bio": "I mix records in a windowless room, so please take me outside. Film photography and very long dinners.",
-    "interests": ["Music production", "Film photography", "Cooking", "Bouldering", "Night buses"],
+    "interests": ["Music", "Photography", "Food"],
     "prompts": [
       { "id": "p7-a", "question": "The hallmark of a good relationship is", "answer": "Comfortable silence. I spend all day listening to things very closely." },
       { "id": "p7-b", "question": "My ideal first date", "answer": "A walk with no destination, then whichever place looks warmest." },
-      { "id": "p7-c", "question": "I geek out on", "answer": "Room acoustics. I can tell you why your flat sounds strange." }
+      { "id": "p7-c", "question": "I geek out on", "answer": "Room acoustics. I can tell you exactly why your flat sounds strange." }
     ]
   },
   {
     "id": "p8",
-    "name": "Sofia",
-    "age": 28,
+    "name": "Priya",
+    "age": 29,
     "jobTitle": "Midwife",
-    "location": "Stoke Newington",
-    "distanceKm": 4,
+    "location": "Basavanagudi",
+    "proximity": "4 km away",
+    "emoji": "🌙",
+    "verified": true,
     "bio": "Shift work means my weekends are random. Bring snacks and patience. I am very good at staying calm.",
-    "interests": ["Swimming", "Crosswords", "Cold brew", "Thrifting", "Stand-up"],
+    "interests": ["Swimming", "Crosswords", "Comedy"],
     "prompts": [
       { "id": "p8-a", "question": "I am known for", "answer": "Being unreasonably competitive about the cryptic crossword." },
       { "id": "p8-b", "question": "Give me travel tips for", "answer": "Anywhere I can swim outdoors and eat something fried afterwards." },
-      { "id": "p8-c", "question": "My most used emoji is", "answer": "The little moon. I work a lot of nights." }
+      { "id": "p8-c", "question": "My most used emoji is", "answer": "The little moon. I work a great many nights." }
     ]
   },
   {
     "id": "p9",
-    "name": "Omar",
-    "age": 32,
+    "name": "Vikram",
+    "age": 33,
     "jobTitle": "Civil engineer",
-    "location": "Bow",
-    "distanceKm": 6,
-    "bio": "I build bridges, which is a great metaphor and also just my job. Chess, cold weather, bad puns.",
-    "interests": ["Chess", "Cycling", "Bridges", "Cooking", "Astronomy"],
+    "location": "Whitefield",
+    "proximity": "9 km away",
+    "emoji": "🌉",
+    "verified": true,
+    "bio": "I build bridges, which is a great metaphor and also just my job. Chess, cold mornings, bad puns.",
+    "interests": ["Chess", "Cycling", "Astronomy"],
     "prompts": [
-      { "id": "p9-a", "question": "My most controversial opinion", "answer": "The Thames has too few bridges and I will bring charts." },
+      { "id": "p9-a", "question": "My most controversial opinion", "answer": "This city has too few bridges and I will bring charts to dinner." },
       { "id": "p9-b", "question": "Teach me something about", "answer": "Anything you know more about than me. I will take notes, genuinely." },
       { "id": "p9-c", "question": "A perfect night in", "answer": "Chess, something slow in the oven, and no phones on the table." }
     ]
   },
   {
     "id": "p10",
-    "name": "Robin",
-    "age": 34,
+    "name": "Sana",
+    "age": 28,
     "jobTitle": "Bookseller",
-    "location": "Islington",
-    "distanceKm": 5,
+    "location": "Cooke Town",
+    "proximity": "Nearby",
+    "emoji": "🌿",
+    "verified": false,
     "bio": "I will recommend you a book based on one thing you said offhand. It will be the right book.",
-    "interests": ["Books", "Allotment", "Cold swims", "Crosswords", "Birdwatching"],
+    "interests": ["Books", "Birds", "Gardening"],
     "prompts": [
-      { "id": "p10-a", "question": "Unusual skills", "answer": "I can find any book in the shop in under a minute, including the ones misfiled by customers." },
-      { "id": "p10-b", "question": "My simple pleasures", "answer": "A heron on the canal. Every single time, I stop walking." },
-      { "id": "p10-c", "question": "I am looking for", "answer": "Someone to share the allotment with. Half the beans are yours." }
+      { "id": "p10-a", "question": "Unusual skills", "answer": "I can find any book in the shop in under a minute, including the misfiled ones." },
+      { "id": "p10-b", "question": "My simple pleasures", "answer": "A kingfisher on the lake. Every single time, I stop walking." },
+      { "id": "p10-c", "question": "I am looking for", "answer": "Someone to share the balcony garden with. Half the tomatoes are yours." }
     ]
   }
 ]

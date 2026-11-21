@@ -1,13 +1,15 @@
 {
   "id": "me",
   "name": "Sam",
-  "age": 30,
+  "age": 27,
   "jobTitle": "Product designer",
-  "location": "Haggerston",
-  "bio": "New to the area and trying to find the good walks. I make a decent flat white and a very mediocre curry.",
-  "interests": ["Walking", "Coffee", "Second-hand books", "Swimming", "Live music"],
+  "location": "Indiranagar",
+  "emoji": "☕",
+  "verified": true,
+  "bio": "New to the city and trying to find the good walks. I make a decent filter coffee and a very mediocre biryani.",
+  "interests": ["Walking", "Coffee", "Live music"],
   "prompts": [
-    { "id": "me-a", "question": "My simple pleasures", "answer": "Finding a bench in the sun that nobody else has found yet." },
+    { "id": "me-a", "question": "My simple pleasures", "answer": "Finding a bench in the shade that nobody else has found yet." },
     { "id": "me-b", "question": "I am looking for", "answer": "Someone who is up for a long walk and a longer conversation." },
     { "id": "me-c", "question": "Dating me is like", "answer": "A reliable Sunday. Low drama, good snacks." }
   ]

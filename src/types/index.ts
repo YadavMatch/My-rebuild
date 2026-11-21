@@ -20,8 +20,17 @@ export type Profile = {
   age: number;
   jobTitle: string;
   location: string;
-  /** Rounded, never exact — showing an exact distance lets people trilaterate an address. */
-  distanceKm: number;
+  /**
+   * Coarse proximity shown on the card, e.g. "Nearby", "2 km away".
+   *
+   * Deliberately a label rather than a precise number: publishing an exact
+   * distance that updates lets someone trilaterate a home address.
+   */
+  proximity: string;
+  /** Stands in for a profile photo until uploads exist. */
+  emoji: string;
+  /** Identity-verified. Shown as a teal check beside the name. */
+  verified: boolean;
   bio: string;
   interests: string[];
   prompts: Prompt[];
@@ -34,6 +43,8 @@ export type CurrentUser = {
   age: number;
   jobTitle: string;
   location: string;
+  emoji: string;
+  verified: boolean;
   bio: string;
   interests: string[];
   prompts: Prompt[];

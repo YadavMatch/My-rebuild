@@ -1,4 +1,4 @@
-# My Rebuild
+# NearMatch
 
 A dating app for iOS, built with [Expo](https://expo.dev) (SDK 58) and shipped
 with [EAS](https://docs.expo.dev/eas/) — Expo Application Services.
@@ -8,25 +8,43 @@ TypeScript, Reanimated 4 and Gesture Handler v3.
 
 ## What works
 
-A complete core loop, running on seed data:
+Running on seed data, no backend yet:
 
-- **Welcome** — first-launch screen with a drifting gradient, floating hearts
-  and a staggered entrance. Shown once; reachable again from the You tab.
-- **Discover** — a swipe deck. Drag a card, or use the four labelled actions:
-  Rewind, Pass, Super like, Like.
-- **Profile detail** — bio, interests and prompts, plus report and block.
-- **Matches** — everyone who liked you back, newest activity first.
-- **Chat** — a thread per match, with a working composer.
-- **You** — your own profile, interests, prompts and swipe counters.
+| Screen | What it does |
+| --- | --- |
+| Welcome | First launch. Drifting orbs, rising hearts, staggered entrance. |
+| Discover | Swipe deck, plus Pass / Message / Like buttons. |
+| Top Picks | Segment beside Discover. Empty by design — see below. |
+| Likes | Everyone you have liked. |
+| Premium | Benefits page. No purchase flow; billing is not wired up. |
+| Messages | Conversations, newest first. |
+| Chat | A thread per match, with a working composer. |
+| Settings | Membership, Privacy & Legal, Danger Zone. |
+| Profile detail | Bio, interests, prompts, plus report and block. |
 
-Swipes, matches and messages all persist across launches via AsyncStorage.
+Swipes, matches and messages persist across launches via AsyncStorage.
 
-Every action is reachable by tapping a labelled button, not only by swiping.
-A swipe-only deck is unusable with a screen reader or with limited motor
-control, and it hides half the app from a first-time user.
+Every action is reachable by tapping a labelled control, not only by
+swiping — a swipe-only deck is unusable with a screen reader or with limited
+motor control.
 
-`APP_NAME` in `src/constants/app.ts` is a placeholder — change it there and
-it updates everywhere in the UI.
+`APP_NAME` in `src/constants/app.ts` is the wordmark. The tab bar is custom
+rather than `NativeTabs`, because the design puts an elevated circular button
+in the middle of the bar and a real UITabBar cannot do that.
+
+## What is deliberately empty or honest
+
+These screens tell the truth about what the app cannot do yet, rather than
+faking it:
+
+- **Top Picks** shows an empty state. There is no ranking model, and showing
+  the same deck under a different heading would misrepresent the app.
+- **Premium** has no buy button, because there is no billing.
+- **Welcome** says all three buttons just open the app, because there is no auth.
+- **Edit profile** says bio edits are not saved.
+- **Legal pages** are labelled placeholders. Invented legal copy would be
+  worse than none: a privacy policy has to describe what the app really does
+  with data, and for a dating app it is reviewed before the store accepts it.
 
 ## Getting started
 

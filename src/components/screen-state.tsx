@@ -1,7 +1,7 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function ScreenLoading({ label = 'Loading' }: { label?: string }) {
@@ -14,15 +14,26 @@ export function ScreenLoading({ label = 'Loading' }: { label?: string }) {
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function EmptyState({
+  title,
+  body,
+  emoji,
+}: {
+  title: string;
+  body: string;
+  emoji?: string;
+}) {
+  const theme = useTheme();
+
   return (
     <View style={styles.centred}>
-      <ThemedText type="subtitle" style={styles.title}>
-        {title}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.body}>
-        {body}
-      </ThemedText>
+      {emoji ? (
+        <Text style={styles.emoji} allowFontScaling={false}>
+          {emoji}
+        </Text>
+      ) : null}
+      <ThemedText style={styles.title}>{title}</ThemedText>
+      <ThemedText style={[styles.body, { color: theme.textSecondary }]}>{body}</ThemedText>
     </View>
   );
 }
@@ -35,12 +46,23 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
   },
+  emoji: {
+    fontSize: 44,
+    lineHeight: 52,
+    marginBottom: Spacing.two,
+  },
   title: {
-    textAlign: 'center',
+    fontFamily: Fonts.rounded,
     fontSize: 24,
     lineHeight: 30,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   body: {
+    fontFamily: Fonts.rounded,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '500',
     textAlign: 'center',
     maxWidth: 320,
   },

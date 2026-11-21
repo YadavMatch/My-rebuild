@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { InterestChip } from '@/components/interest-chip';
+import { InterestChip, VerifiedBadge } from '@/components/badges';
 import { PressableScale } from '@/components/pressable-scale';
 import { ProfilePhoto } from '@/components/profile-photo';
 import { PromptCard } from '@/components/prompt-card';
@@ -55,19 +55,17 @@ export default function ProfileDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <ProfilePhoto
-        id={profile.id}
-        name={profile.name}
-        style={styles.hero}
-        initialSize={140}
-      />
+      <ProfilePhoto emoji={profile.emoji} name={profile.name} size={120} style={styles.hero} />
 
       <View style={styles.header}>
-        <ThemedText type="subtitle" accessibilityRole="header">
-          {profile.name}, {profile.age}
-        </ThemedText>
+        <View style={styles.nameRow}>
+          <ThemedText type="subtitle" accessibilityRole="header">
+            {profile.name}, {profile.age}
+          </ThemedText>
+          {profile.verified ? <VerifiedBadge /> : null}
+        </View>
         <ThemedText type="small" themeColor="textSecondary">
-          {profile.jobTitle} · {profile.location} · {profile.distanceKm} km away
+          {profile.jobTitle} · {profile.location} · {profile.proximity}
         </ThemedText>
       </View>
 
@@ -129,6 +127,11 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.one,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   chips: {
     flexDirection: 'row',

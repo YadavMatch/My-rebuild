@@ -3,24 +3,25 @@ import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Pill, VerifiedBadge } from '@/components/badges';
 import { PressableScale } from '@/components/pressable-scale';
 import { ProfilePhoto } from '@/components/profile-photo';
 import { ScreenLoading, EmptyState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CURRENT_USER_ID, fetchConversations, getProfileSync, lastActivityAt } from '@/services';
+import { CURRENT_USER_ID, fetchConversations, getProfileSync } from '@/services';
 import { useDecisions } from '@/store/decisions';
 import type { Conversation } from '@/types';
 
-export default function MatchesScreen() {
+export default function MessagesScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { state } = useDecisions();
   const [conversations, setConversations] = useState<Conversation[] | undefined>(undefined);
 
-  // Refetch on focus: a match made on the Discover tab, or a message just
-  // sent, should be reflected when coming back here.
+  // Refetch on focus: a match made on Discover, or a message just sent,
+  // should be reflected when coming back here.
   useFocusEffect(
     useCallback(() => {
       if (!state.hydrated) {
@@ -46,21 +47,28 @@ export default function MatchesScreen() {
     }, [state.hydrated, state.blocked]),
   );
 
-  if (!conversations) {
-    return <ScreenLoading label="Loading your matches" />;
-  }
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.heading}>
-          MATCHES
-        </ThemedText>
+        <View style={styles.header}>
+          <ThemedText style={styles.title} accessibilityRole="header">
+            Messages
+          </ThemedText>
+          <PressableScale
+            onPress={() => router.push('/invite')}
+            accessibilityRole="button"
+            accessibilityLabel="Invite a friend">
+            <Pill label="Invite" glyph="+" variant="tinted" />
+          </PressableScale>
+        </View>
 
-        {conversations.length === 0 ? (
+        {!conversations ? (
+          <ScreenLoading label="Loading your messages" />
+        ) : conversations.length === 0 ? (
           <EmptyState
-            title="No matches yet"
-            body="When someone you liked likes you back, they turn up here and you can start talking."
+            emoji="💬"
+            title="No messages yet"
+            body="When someone you liked likes you back, your conversation starts here."
           />
         ) : (
           <FlatList
@@ -83,22 +91,25 @@ export default function MatchesScreen() {
                   onPress={() => router.push(`/chat/${item.id}`)}
                   accessibilityRole="button"
                   accessibilityLabel={`Conversation with ${profile.name}. ${preview}`}
-                  style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
+                  style={styles.row}>
                   <ProfilePhoto
-                    id={profile.id}
+                    emoji={profile.emoji}
                     name={profile.name}
+                    size={26}
                     style={styles.avatar}
-                    initialSize={24}
                   />
                   <View style={styles.rowText}>
-                    <ThemedText type="smallBold">{profile.name}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    <View style={styles.nameRow}>
+                      <ThemedText style={styles.name}>{profile.name}</ThemedText>
+                      {profile.verified ? <VerifiedBadge size={18} /> : null}
+                    </View>
+                    <ThemedText
+                      style={[styles.preview, { color: theme.textSecondary }]}
+                      numberOfLines={1}>
                       {preview}
                     </ThemedText>
                   </View>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {relativeTime(lastActivityAt(item))}
-                  </ThemedText>
+                  <ThemedText style={[styles.more, { color: theme.textSecondary }]}>···</ThemedText>
                 </PressableScale>
               );
             }}
@@ -109,38 +120,25 @@ export default function MatchesScreen() {
   );
 }
 
-/** Coarse relative time. Good enough for a list and needs no date library. */
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) {
-    return '';
-  }
-  const minutes = Math.round((Date.now() - then) / 60000);
-  if (minutes < 1) {
-    return 'now';
-  }
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h`;
-  }
-  return `${Math.round(hours / 24)}d`;
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.three,
-    paddingBottom: BottomTabInset,
+    paddingBottom: Spacing.two,
     gap: Spacing.three,
   },
-  heading: {
-    letterSpacing: 1.5,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.two,
+  },
+  title: {
+    fontFamily: Fonts.rounded,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: '700',
   },
   list: {
     gap: Spacing.two,
@@ -150,17 +148,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Radius.lg,
+    paddingVertical: Spacing.two,
     minHeight: 72,
   },
   avatar: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: Radius.pill,
   },
   rowText: {
     flex: 1,
     gap: 2,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one + 2,
+  },
+  name: {
+    fontFamily: Fonts.rounded,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  preview: {
+    fontFamily: Fonts.rounded,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  more: {
+    fontSize: 20,
+    fontWeight: '700',
   },
 });
