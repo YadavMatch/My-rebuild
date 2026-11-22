@@ -61,7 +61,7 @@ representations rather than marketing.
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | Client-side only | Server-side filtering on feed, matches and messages |
 | One-tap report on profile | **Done** | Moderation queue to receive it |
-| One-tap report on conversation | Not built | Report entry point in chat |
+| One-tap report on conversation | **Done** | Moderation queue to receive it |
 | Swipe and message rate limits | Not built | Server-side counters; client limits are advisory only |
 | Free tier: 6 likes a day | Not built | Daily like cap |
 | Premium: unlimited likes | Not built | The cap, then billing |
