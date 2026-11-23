@@ -7,12 +7,14 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/store/auth';
 import { useDecisions } from '@/store/decisions';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { state, reset, showWelcomeAgain, setPremium } = useDecisions();
+  const { user, enabled: authEnabled, signOut } = useAuth();
 
   function confirmWithdrawConsent() {
     Alert.alert(
@@ -64,6 +66,28 @@ export default function SettingsScreen() {
           <ThemedText style={styles.title} accessibilityRole="header">
             Settings
           </ThemedText>
+
+          {authEnabled ? (
+            <SettingsSection title="ACCOUNT">
+              {user ? (
+                <SettingsRow
+                  emoji="🚪"
+                  label={`Sign out of ${user.email ?? 'this account'}`}
+                  onPress={() => {
+                    signOut().catch(() => {});
+                  }}
+                  last
+                />
+              ) : (
+                <SettingsRow
+                  emoji="🔑"
+                  label="Sign in or create an account"
+                  onPress={() => router.push('/sign-in')}
+                  last
+                />
+              )}
+            </SettingsSection>
+          ) : null}
 
           <SettingsSection title="MEMBERSHIP">
             <SettingsRow

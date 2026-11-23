@@ -22,7 +22,9 @@ export default function WelcomeScreen() {
   const entrance = (delay: number) =>
     reducedMotion ? FadeIn.delay(delay).duration(240) : FadeInDown.delay(delay).duration(420);
 
-  function enter() {
+  // "Skip for now" browses on sample data without an account. The two
+  // account buttons go to the real thing.
+  function skip() {
     completeWelcome().catch(() => {});
     router.replace('/(tabs)');
   }
@@ -81,7 +83,7 @@ export default function WelcomeScreen() {
 
         <Animated.View entering={entrance(460)} style={styles.actions}>
           <PressableScale
-            onPress={enter}
+            onPress={() => router.push('/sign-in?mode=signup')}
             accessibilityRole="button"
             accessibilityLabel="Create an account"
             style={[styles.button, styles.primaryButton]}>
@@ -91,9 +93,11 @@ export default function WelcomeScreen() {
           </PressableScale>
 
           <PressableScale
-            onPress={enter}
+            onPress={() => router.push('/sign-in?mode=signin')}
             accessibilityRole="button"
-            accessibilityLabel="Sign in"
+            // Matches the visible text; an accessible name that differs from
+            // the label on screen fails WCAG 2.5.3.
+            accessibilityLabel="I already have an account"
             style={[styles.button, styles.secondaryButton]}>
             <ThemedText type="smallBold" style={styles.secondaryLabel}>
               I already have an account
@@ -101,7 +105,7 @@ export default function WelcomeScreen() {
           </PressableScale>
 
           <PressableScale
-            onPress={enter}
+            onPress={skip}
             accessibilityRole="button"
             accessibilityLabel="Skip for now and look around"
             style={styles.skip}>
@@ -111,12 +115,8 @@ export default function WelcomeScreen() {
           </PressableScale>
 
           <ThemedText type="small" style={styles.legal}>
-            {/*
-              Neither button signs anyone in yet — there is no auth. Both go
-              straight to the app, and the copy below says so rather than
-              implying an account exists.
-            */}
-            Accounts are not wired up yet, so all three buttons just open the app.
+            Skipping lets you look around with sample profiles. Matches and messages need an
+            account.
           </ThemedText>
         </Animated.View>
       </SafeAreaView>
