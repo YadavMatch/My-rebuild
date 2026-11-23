@@ -85,7 +85,23 @@ requires **DLT registration** with a telecom operator. Start that early; it
 is not same-day.
 
 For development you can leave phone off and use email sign-in, which needs no
-provider.
+provider. That is what the app signs in with today.
+
+### Email confirmation, during development
+
+**Authentication → Sign In / Providers → Email → Confirm email.**
+
+Leave this **off while building**. With it on, signing up returns an account
+with no active session until the link in the email is clicked, so a new user
+cannot get into the app — and neither can an automated check, which is what
+verifies that row-level security actually holds for a signed-in person.
+
+The sign-up screen handles confirmation correctly either way: when a sign-up
+comes back without a session it stops on "check your email" rather than
+opening the deck as though it had worked.
+
+**Turn it back on before launch.** Without it, anyone can create an account
+against an address they do not own.
 
 ## 5. Send me two values
 
