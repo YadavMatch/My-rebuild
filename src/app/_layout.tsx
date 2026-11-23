@@ -7,6 +7,7 @@ import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Colors, Fonts } from '@/constants/theme';
+import { AuthProvider } from '@/store/auth';
 import { DecisionsProvider } from '@/store/decisions';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -34,6 +35,7 @@ export default function RootLayout() {
     // Without this wrapper gestures silently do nothing — no error, no warning.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
         <DecisionsProvider>
           <Stack
             screenOptions={{
@@ -44,6 +46,7 @@ export default function RootLayout() {
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
+            <Stack.Screen name="sign-in" options={{ title: '' }} />
             <Stack.Screen name="age-gate" options={{ headerShown: false }} />
             <Stack.Screen
               name="underage"
@@ -90,6 +93,7 @@ export default function RootLayout() {
             />
           </Stack>
         </DecisionsProvider>
+        </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
