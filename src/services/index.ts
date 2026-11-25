@@ -16,6 +16,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  subscribeToMyMessages as supabaseSubscribeMine,
+  subscribeToConversation as supabaseSubscribe,
   fetchPromptCatalogue as supabaseFetchPrompts,
   saveMyPrompts as supabaseSavePrompts,
   updateMyProfile as supabaseUpdateProfile,
@@ -29,6 +31,7 @@ import {
   supabaseService,
 } from '@/services/supabase-service';
 import type { DataService } from '@/services/types';
+import type { Message } from '@/types';
 
 /**
  * Chosen per call, not once at startup, because it depends on whether
@@ -126,6 +129,30 @@ export async function saveMyPrompts(
  */
 export function needsProfileSetup(name: string): boolean {
   return name.trim().length === 0 || name === PLACEHOLDER_NAME;
+}
+
+/**
+ * Calls back when someone else adds a message to this conversation.
+ *
+ * A no-op on the seed backend: nobody else is typing into sample data, so
+ * there is nothing to push.
+ */
+export function subscribeToConversation(
+  conversationId: string,
+  onMessage: (message: Message) => void,
+): () => void {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseSubscribe(conversationId, onMessage);
+  }
+  return () => {};
+}
+
+/** Calls back whenever any conversation of this account gains a message. */
+export function subscribeToMyMessages(onChange: () => void): () => void {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseSubscribeMine(onChange);
+  }
+  return () => {};
 }
 
 export const fetchDeck: DataService['fetchDeck'] = (ids) => service().fetchDeck(ids);

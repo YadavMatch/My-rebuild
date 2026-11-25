@@ -344,6 +344,84 @@ const main = async () => {
     strangerView.error?.message ?? `${(strangerView.data ?? []).length} rows`,
   );
 
+  // ---------------------------------------------------------------------
+  // Realtime carries the same row-level security as a read.
+  //
+  // Worth asserting rather than assuming: a stream that ignored RLS would
+  // leak private messages to anyone who could guess a match id, and nothing
+  // in the REST tests above would notice.
+  // ---------------------------------------------------------------------
+  console.log('\n--- realtime\n');
+
+  const [p1, p2] = [a, targetClients[0]];
+  await p1.client
+    .from('swipes')
+    .insert({ actor_id: p1.id, target_id: p2.id, decision: 'like' })
+    .then(() => {});
+  const { data: liveMatch } = await p2.client
+    .from('matches')
+    .select('id')
+    .maybeSingle();
+
+  if (!liveMatch) {
+    record('a match exists to stream from', false, 'none found');
+  } else {
+    // A subscribe that never reaches SUBSCRIBED must not hang the run: it is
+    // a failure to report, not a reason to wait forever.
+    const channels = [];
+    const listen = (client, tag, bucket) =>
+      new Promise((resolve) => {
+        const giveUp = setTimeout(() => resolve(`${tag}: never subscribed`), 20000);
+        const channel = client
+          .channel(`verify:${tag}:${liveMatch.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `match_id=eq.${liveMatch.id}`,
+            },
+            (payload) => bucket.push(payload.new.body),
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              clearTimeout(giveUp);
+              resolve(null);
+            }
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              clearTimeout(giveUp);
+              resolve(`${tag}: ${status}`);
+            }
+          });
+        channels.push({ client, channel });
+      });
+
+    const heard = [];
+    const overheard = [];
+    const problems = [
+      await listen(p2.client, 'participant', heard),
+      // b is in no match with either of them, and subscribes to the same topic.
+      await listen(b.client, 'stranger', overheard),
+    ].filter(Boolean);
+    record('both channels subscribed', problems.length === 0, problems.join('; '));
+    await new Promise((r) => setTimeout(r, 1500));
+
+    await p1.client
+      .from('messages')
+      .insert({ match_id: liveMatch.id, sender_id: p1.id, body: 'streamed' });
+    await new Promise((r) => setTimeout(r, 7000));
+
+    record('a message reaches the other participant live', heard.includes('streamed'), `${heard.length} received`);
+    record('and never reaches a stranger on the same channel', overheard.length === 0, `${overheard.length} received`);
+
+    // An open channel is a live socket, and node will not exit while one is
+    // held. Closing them is what lets this script end on its own.
+    for (const { client, channel } of channels) {
+      await client.removeChannel(channel).catch(() => {});
+    }
+  }
+
   // Tidy up. The anon key cannot delete an auth user, but each account can
   // hide its own profile, which keeps throwaway rows out of everyone's deck.
   for (const u of [a, b, ...targetClients]) {

@@ -192,6 +192,64 @@ export async function saveMyPrompts(
   }
 }
 
+/**
+ * Live messages for one conversation.
+ *
+ * Postgres publishes the insert, and row-level security still applies to the
+ * stream — a channel only delivers rows the subscriber could have selected —
+ * so this does not widen what anyone can read. The filter narrows it to one
+ * match so a busy account is not woken by every conversation it has.
+ *
+ * Returns the unsubscribe, because a channel left open after the screen is
+ * gone is a socket and a listener that nothing will ever close.
+ */
+export function subscribeToConversation(
+  conversationId: string,
+  onMessage: (message: Message) => void,
+): () => void {
+  const client = supabase();
+  const channel = client
+    .channel(`messages:${conversationId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `match_id=eq.${conversationId}`,
+      },
+      (payload) => {
+        onMessage(toMessage(payload.new as MessageRow));
+      },
+    )
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel).catch(() => {});
+  };
+}
+
+/**
+ * Every message this account is allowed to see, as it arrives.
+ *
+ * No match filter: row-level security already limits the stream to matches
+ * the subscriber is in, which the test suite asserts rather than assumes.
+ * Used by the matches list, which only needs to know that something changed.
+ */
+export function subscribeToMyMessages(onChange: () => void): () => void {
+  const client = supabase();
+  const channel = client
+    .channel('messages:mine')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+      onChange();
+    })
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel).catch(() => {});
+  };
+}
+
 /** Profiles already seen, so rows that hold only an id can render without a fetch. */
 const profileCache = new Map<string, Profile>();
 
