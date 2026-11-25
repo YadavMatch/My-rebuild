@@ -130,3 +130,21 @@ select count(*) as premium_lifts_cap_to_7 from swipes
 \echo '=== every public table has RLS enabled ==='
 select count(*) as tables_without_rls_must_be_0
 from pg_tables where schemaname='public' and not rowsecurity;
+
+\echo ''
+\echo '=== geo is not readable by clients (0002) ==='
+-- The leak this closed: `grant select on all tables` included geo, so any
+-- signed-in client could read exact coordinates. Column privileges are the
+-- only thing that stops it, because no policy can hide a column.
+select
+  has_column_privilege('authenticated', 'profiles', 'geo',  'SELECT') as geo_must_be_false,
+  has_column_privilege('authenticated', 'profiles', 'name', 'SELECT') as name_must_be_true,
+  has_column_privilege('authenticated', 'profiles', 'bio',  'SELECT') as bio_must_be_true;
+
+\echo '=== discover_feed does not return a geo column (0002) ==='
+select count(*) filter (where lower(t.name) = 'geo') as geo_cols_must_be_0,
+       count(*)                                      as total_cols
+from (
+  select unnest(proargnames) as name
+  from pg_proc where proname = 'discover_feed'
+) t;

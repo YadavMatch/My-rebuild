@@ -30,15 +30,24 @@ create or replace function auth.uid() returns uuid language sql stable
 grant execute on function auth.uid() to anon, authenticated;
 SQL
 
-sed -e 's/create extension if not exists postgis  with schema extensions;/-- postgis is not installed locally/' \
-    -e 's/create extension if not exists pgcrypto with schema extensions;/create extension if not exists pgcrypto;/' \
-    -e 's/geography(point, 4326)/text/' \
-    -e 's/create index on profiles using gist (geo);/-- gist needs postgis/' \
-    -e 's/st_dwithin(p.geo, me.geo, max_distance_m)/true/' \
-    -e '/p.geo <-> me.geo,/d' \
-    -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
-    "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
+# PostGIS stand-ins. The properties under test are privileges and triggers.
+stub() {
+  sed -e 's/create extension if not exists postgis  with schema extensions;/-- postgis is not installed locally/' \
+      -e 's/create extension if not exists pgcrypto with schema extensions;/create extension if not exists pgcrypto;/' \
+      -e 's/geography(point, 4326)/text/' \
+      -e 's/create index on profiles using gist (geo);/-- gist needs postgis/' \
+      -e 's/st_dwithin(p.geo, me.geo, max_distance_m)/true/' \
+      -e 's/st_distance(p.geo, me.geo)/0/g' \
+      -e '/p.geo <-> me.geo,/d' \
+      -e 's/p.geo <-> me.geo/0/g' \
+      -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
+      "$1"
+}
+
+stub "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
+stub "$HERE/../migrations/0002_hide_geo.sql"       > "$DIR/migration2.sql"
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
-echo "migration applied"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration2.sql"
+echo "migrations applied"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

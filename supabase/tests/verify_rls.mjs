@@ -208,7 +208,26 @@ const main = async () => {
     await a.client.from('profiles').update({ name: 'Owned' }).eq('id', b.id).select(),
   );
 
-  // 7. Sending a message into a match that does not exist.
+  // 7. Reading another person's exact location.
+  //
+  // 0001 granted SELECT on every column, so this returned the precise
+  // coordinates of any discoverable profile — the home address, not a
+  // trilateration risk. 0002 revokes the column. Until that migration is
+  // applied to the project this check fails, which is the point.
+  allowed(
+    'A can set its own location',
+    await a.client
+      .from('profiles')
+      .update({ geo: 'POINT(77.6408 12.9784)' })
+      .eq('id', a.id)
+      .select('id'),
+  );
+  denied(
+    "B cannot read A's coordinates",
+    await b.client.from('profiles').select('geo').eq('id', a.id),
+  );
+
+  // 8. Sending a message into a match that does not exist.
   denied(
     'A cannot message without a match',
     await a.client
