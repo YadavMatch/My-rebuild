@@ -7,6 +7,8 @@ import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Colors, Fonts } from '@/constants/theme';
+import { useNotificationRouting } from '@/hooks/use-notification-routing';
+import { configureNotificationHandler } from '@/lib/push';
 import { AuthProvider } from '@/store/auth';
 import { DecisionsProvider } from '@/store/decisions';
 
@@ -20,6 +22,14 @@ export default function RootLayout() {
   // The wordmark is set in Pacifico. Holding the splash until it loads
   // avoids the logo rendering in the fallback face and then jumping.
   const [fontsLoaded] = useFonts({ Pacifico_400Regular });
+
+  // How a notification behaves while the app is open, and where tapping one
+  // goes. Set in an effect rather than at module scope: the web build renders
+  // this file on the server, where none of it exists.
+  useEffect(() => {
+    configureNotificationHandler();
+  }, []);
+  useNotificationRouting();
 
   useEffect(() => {
     if (fontsLoaded) {

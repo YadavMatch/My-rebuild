@@ -158,3 +158,44 @@ from (
   select unnest(proargnames) as name
   from pg_proc where proname = 'discover_feed'
 ) t;
+
+\echo ''
+\echo '=== the photo bucket is private and limited (0005) ==='
+select
+  (select count(*) from storage.buckets where id = 'profile-photos')            as bucket_must_be_1,
+  (select public from storage.buckets where id = 'profile-photos')              as public_must_be_false,
+  (select count(*) from pg_policies
+     where tablename = 'objects' and policyname like 'profile_photos%')         as policies_must_be_4;
+
+\echo '=== a message notifies the other person, and only them (0006) ==='
+-- Two people in a match, the recipient has a device registered.
+insert into auth.users (id) values
+  ('eeee1111-0000-0000-0000-000000000001'),
+  ('eeee1111-0000-0000-0000-000000000002');
+insert into push_tokens (user_id, token, platform)
+  values ('eeee1111-0000-0000-0000-000000000002', 'ExponentPushToken[recipient]', 'ios');
+insert into matches (user_a, user_b) values
+  (least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid),
+   greatest('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid));
+
+insert into messages (match_id, sender_id, body)
+select id, 'eeee1111-0000-0000-0000-000000000001', 'knock knock' from matches
+where user_a = least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid);
+
+select
+  (select count(*) from net._calls)                                   as pushes_must_be_1,
+  (select body -> 0 ->> 'to'   from net._calls limit 1)
+    = 'ExponentPushToken[recipient]'                                  as goes_to_the_recipient,
+  (select body -> 0 ->> 'body' from net._calls limit 1)
+    = 'knock knock'                                                   as carries_the_text,
+  (select body -> 0 -> 'data' ->> 'url' from net._calls limit 1)
+    like '/chat/%'                                                    as deep_links_to_the_chat;
+
+\echo '=== a block stops the notification ==='
+truncate net._calls;
+insert into blocks (blocker_id, blocked_id)
+  values ('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001');
+insert into messages (match_id, sender_id, body)
+select id, 'eeee1111-0000-0000-0000-000000000001', 'again' from matches
+where user_a = least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid);
+select count(*) as pushes_after_block_must_be_0 from net._calls;

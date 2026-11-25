@@ -250,6 +250,29 @@ export function subscribeToMyMessages(onChange: () => void): () => void {
   };
 }
 
+/**
+ * Records this device so the server can reach it.
+ *
+ * Keyed on (user, token), so reinstalling or signing in on a second device
+ * adds a row rather than replacing the first — a person with a phone and a
+ * tablet should hear about a message on both.
+ */
+export async function savePushToken(token: string, platform: string): Promise<void> {
+  const me = requireUser();
+  const { error } = await supabase()
+    .from('push_tokens')
+    .upsert({ user_id: me, token, platform }, { onConflict: 'user_id,token' });
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Forgets this device, so signing out stops the notifications. */
+export async function forgetPushToken(token: string): Promise<void> {
+  const me = requireUser();
+  await supabase().from('push_tokens').delete().eq('user_id', me).eq('token', token);
+}
+
 /** Profiles already seen, so rows that hold only an id can render without a fetch. */
 const profileCache = new Map<string, Profile>();
 

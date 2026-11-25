@@ -28,6 +28,29 @@ create table auth.users (id uuid primary key default gen_random_uuid(),
 create or replace function auth.uid() returns uuid language sql stable
   as $$ select current_setting('test.uid', true)::uuid $$;
 grant execute on function auth.uid() to anon, authenticated;
+
+-- Supabase Storage, enough of it to check the bucket and its policies.
+create schema if not exists storage;
+grant usage on schema storage to anon, authenticated;
+create table storage.buckets (
+  id text primary key, name text not null, public boolean not null default false,
+  file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(), bucket_id text, name text,
+  owner uuid, created_at timestamptz default now());
+alter table storage.objects enable row level security;
+create or replace function storage.foldername(name text) returns text[]
+  language sql immutable as $fn$ select string_to_array(name, '/') $fn$;
+
+-- pg_net, which is what the message trigger calls out through.
+create schema if not exists net;
+create table net._calls (id bigserial primary key, url text, body jsonb);
+create or replace function net.http_post(
+  url text, body jsonb default '{}', params jsonb default '{}',
+  headers jsonb default '{}', timeout_milliseconds int default 5000)
+  returns bigint language sql as $fn$
+    insert into net._calls (url, body) values (url, body) returning id;
+  $fn$;
 SQL
 
 # PostGIS stand-ins. The properties under test are privileges and triggers.
@@ -47,6 +70,7 @@ stub() {
       -e 's/add column if not exists geo geography(point, 4326)/add column if not exists geo text/' \
       -e 's/create index on profiles_private using gist (geo);/-- gist needs postgis/' \
       -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
+      -e 's/create extension if not exists pg_net with schema extensions;/-- pg_net is stubbed above/' \
       "$1"
 }
 
@@ -54,10 +78,14 @@ stub "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
 stub "$HERE/../migrations/0002_hide_geo.sql"       > "$DIR/migration2.sql"
 stub "$HERE/../migrations/0003_move_geo_private.sql" > "$DIR/migration3.sql"
 stub "$HERE/../migrations/0004_feed_without_location.sql" > "$DIR/migration4.sql"
+stub "$HERE/../migrations/0005_profile_photos.sql"          > "$DIR/migration5.sql"
+stub "$HERE/../migrations/0006_message_push.sql"            > "$DIR/migration6.sql"
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration2.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration3.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration4.sql"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration5.sql"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration6.sql"
 echo "migrations applied"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

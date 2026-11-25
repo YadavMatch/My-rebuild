@@ -16,6 +16,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  savePushToken as supabaseSavePushToken,
+  forgetPushToken as supabaseForgetPushToken,
   uploadProfilePhoto as supabaseUploadPhoto,
   removeProfilePhoto as supabaseRemovePhoto,
   subscribeToMyMessages as supabaseSubscribeMine,
@@ -169,6 +171,21 @@ export async function uploadProfilePhoto(base64: string, mimeType: string): Prom
 export async function removeProfilePhoto(): Promise<void> {
   if (isSupabaseConfigured && hasSupabaseSession()) {
     await supabaseRemovePhoto();
+  }
+}
+
+/** Records this device's push token against the signed-in account. */
+export async function savePushToken(token: string, platform: string): Promise<void> {
+  if (!isSupabaseConfigured || !hasSupabaseSession()) {
+    throw new Error('Sign in to enable notifications.');
+  }
+  await supabaseSavePushToken(token, platform);
+}
+
+/** Forgets this device's push token. */
+export async function forgetPushToken(token: string): Promise<void> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    await supabaseForgetPushToken(token);
   }
 }
 

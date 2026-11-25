@@ -8,6 +8,7 @@ import { APP_NAME } from '@/constants/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { captureLocation } from '@/lib/location';
+import { registerForPush } from '@/lib/push';
 import { useAuth } from '@/store/auth';
 import { useDecisions } from '@/store/decisions';
 
@@ -87,6 +88,28 @@ export default function SettingsScreen() {
                   last
                 />
               )}
+            </SettingsSection>
+          ) : null}
+
+          {user ? (
+            <SettingsSection title="NOTIFICATIONS">
+              <SettingsRow
+                emoji="🔔"
+                label="Turn on message notifications"
+                onPress={() => {
+                  registerForPush()
+                    .then((r) => {
+                      Alert.alert(
+                        r.ok ? 'Notifications on' : 'Not turned on',
+                        r.ok
+                          ? 'You will hear about new messages on this device.'
+                          : r.message,
+                      );
+                    })
+                    .catch(() => {});
+                }}
+                last
+              />
             </SettingsSection>
           ) : null}
 
