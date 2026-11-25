@@ -210,21 +210,38 @@ const main = async () => {
 
   // 7. Reading another person's exact location.
   //
-  // 0001 granted SELECT on every column, so this returned the precise
-  // coordinates of any discoverable profile — the home address, not a
-  // trilateration risk. 0002 revokes the column. Until that migration is
-  // applied to the project this check fails, which is the point.
+  // 0001 granted SELECT on every column of profiles, so this returned the
+  // precise coordinates of any discoverable profile — the home address, not
+  // a trilateration risk. 0003 moved the column to the owner-only table.
   allowed(
     'A can set its own location',
     await a.client
-      .from('profiles')
-      .update({ geo: 'POINT(77.6408 12.9784)' })
-      .eq('id', a.id)
+      .from('profiles_private')
+      .upsert({
+        id: a.id,
+        date_of_birth: '1994-03-14',
+        age_confirmed_at: new Date().toISOString(),
+        geo: 'POINT(77.6408 12.9784)',
+      })
       .select('id'),
+  );
+  allowed(
+    'A can read its own location back',
+    await a.client.from('profiles_private').select('geo').eq('id', a.id),
   );
   denied(
     "B cannot read A's coordinates",
+    await b.client.from('profiles_private').select('geo').eq('id', a.id),
+  );
+  denied(
+    'and geo is gone from profiles entirely',
     await b.client.from('profiles').select('geo').eq('id', a.id),
+  );
+
+  // The trap 0002 introduced and 0003 removed: `select *` must work.
+  allowed(
+    'select * on profiles still works',
+    await b.client.from('profiles').select('*').eq('id', a.id),
   );
 
   // 8. Sending a message into a match that does not exist.

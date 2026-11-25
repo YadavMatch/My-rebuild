@@ -37,17 +37,24 @@ stub() {
       -e 's/geography(point, 4326)/text/' \
       -e 's/create index on profiles using gist (geo);/-- gist needs postgis/' \
       -e 's/st_dwithin(p.geo, me.geo, max_distance_m)/true/' \
+      -e 's/st_dwithin(pp.geo, me.geo, max_distance_m)/true/' \
       -e 's/st_distance(p.geo, me.geo)/0/g' \
+      -e 's/st_distance(pp.geo, me.geo)/0/g' \
       -e '/p.geo <-> me.geo,/d' \
+      -e 's/pp.geo <-> me.geo/0/g' \
       -e 's/p.geo <-> me.geo/0/g' \
+      -e 's/add column if not exists geo geography(point, 4326)/add column if not exists geo text/' \
+      -e 's/create index on profiles_private using gist (geo);/-- gist needs postgis/' \
       -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
       "$1"
 }
 
 stub "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
 stub "$HERE/../migrations/0002_hide_geo.sql"       > "$DIR/migration2.sql"
+stub "$HERE/../migrations/0003_move_geo_private.sql" > "$DIR/migration3.sql"
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration2.sql"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration3.sql"
 echo "migrations applied"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

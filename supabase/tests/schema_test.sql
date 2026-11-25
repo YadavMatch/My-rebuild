@@ -132,16 +132,26 @@ select count(*) as tables_without_rls_must_be_0
 from pg_tables where schemaname='public' and not rowsecurity;
 
 \echo ''
-\echo '=== geo is not readable by clients (0002) ==='
--- The leak this closed: `grant select on all tables` included geo, so any
--- signed-in client could read exact coordinates. Column privileges are the
--- only thing that stops it, because no policy can hide a column.
+\echo '=== location is not on profiles at all (0003) ==='
+-- 0002 hid geo with column privileges, which made `select *` on profiles
+-- fail. 0003 moved it to the owner-only table instead, so profiles is
+-- plainly readable again and there is no column to forget about.
 select
-  has_column_privilege('authenticated', 'profiles', 'geo',  'SELECT') as geo_must_be_false,
-  has_column_privilege('authenticated', 'profiles', 'name', 'SELECT') as name_must_be_true,
-  has_column_privilege('authenticated', 'profiles', 'bio',  'SELECT') as bio_must_be_true;
+  (select count(*) from information_schema.columns
+    where table_name = 'profiles' and column_name = 'geo')         as on_profiles_must_be_0,
+  (select count(*) from information_schema.columns
+    where table_name = 'profiles_private' and column_name = 'geo') as on_private_must_be_1;
 
-\echo '=== discover_feed does not return a geo column (0002) ==='
+\echo '=== profiles is readable again, including select * (0003) ==='
+select
+  has_table_privilege('authenticated', 'profiles', 'SELECT')          as profiles_select_must_be_true,
+  has_column_privilege('authenticated', 'profiles', 'name', 'SELECT') as name_must_be_true;
+
+\echo '=== and the private table stays owner-only ==='
+select count(*) as private_policies_must_be_3
+from pg_policies where tablename = 'profiles_private';
+
+\echo '=== discover_feed does not return a geo column ==='
 select count(*) filter (where lower(t.name) = 'geo') as geo_cols_must_be_0,
        count(*)                                      as total_cols
 from (
