@@ -344,6 +344,26 @@ const main = async () => {
     strangerView.error?.message ?? `${(strangerView.data ?? []).length} rows`,
   );
 
+  // The grant functions exist so a payment webhook or an identity provider
+  // can award Premium and the verified badge. If a client can reach them,
+  // every protection on those two columns is decorative.
+  denied(
+    'A cannot call grant_premium',
+    await a.client.rpc('grant_premium', { target: a.id }),
+  );
+  denied(
+    'A cannot call record_verification',
+    await a.client.rpc('record_verification', { target: a.id, passed: true, provider: 'self' }),
+  );
+  {
+    const after = await a.client
+      .from('entitlements')
+      .select('tier')
+      .eq('user_id', a.id)
+      .maybeSingle();
+    record('and is still on the free tier', after.data?.tier === 'free', `tier=${after.data?.tier}`);
+  }
+
   // ---------------------------------------------------------------------
   // Realtime carries the same row-level security as a read.
   //
@@ -410,7 +430,17 @@ const main = async () => {
     await p1.client
       .from('messages')
       .insert({ match_id: liveMatch.id, sender_id: p1.id, body: 'streamed' });
-    await new Promise((r) => setTimeout(r, 7000));
+
+    // Poll rather than sleep a fixed time. A fixed wait makes this flaky,
+    // and a flaky security check is worse than none: "the stranger received
+    // nothing" means nothing on a run where nobody received anything.
+    const deadline = Date.now() + 25000;
+    while (heard.length === 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    // Give a late or wrongly-delivered message a moment to show up too, so
+    // the stranger assertion is not just winning the race.
+    await new Promise((r) => setTimeout(r, 2000));
 
     record('a message reaches the other participant live', heard.includes('streamed'), `${heard.length} received`);
     record('and never reaches a stranger on the same channel', overheard.length === 0, `${overheard.length} received`);

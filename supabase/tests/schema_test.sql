@@ -11,7 +11,6 @@
 -- reduce a table-level GRANT.
 
 \set ON_ERROR_STOP off
-grant execute on all functions in schema public to authenticated;
 
 insert into auth.users (id, raw_user_meta_data) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','{"name":"Asha"}'),
@@ -199,3 +198,44 @@ insert into messages (match_id, sender_id, body)
 select id, 'eeee1111-0000-0000-0000-000000000001', 'again' from matches
 where user_a = least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid);
 select count(*) as pushes_after_block_must_be_0 from net._calls;
+
+\echo ''
+\echo '=== a client cannot call the grant functions (0007) ==='
+-- Attempted, not inspected. has_function_privilege reports what the catalogue
+-- says; only a call proves what the server does, and the column-grant bug in
+-- 0001 was exactly a case of the two disagreeing.
+insert into auth.users (id) values ('aaaa9999-0000-0000-0000-000000000009');
+set role authenticated;
+\echo '-- authenticated grants itself Premium (expect: permission denied)'
+select grant_premium('aaaa9999-0000-0000-0000-000000000009');
+\echo '-- authenticated awards itself the badge (expect: permission denied)'
+select record_verification('aaaa9999-0000-0000-0000-000000000009', true, 'self');
+reset role;
+select
+  coalesce((select tier::text from entitlements
+             where user_id = 'aaaa9999-0000-0000-0000-000000000009'), 'free')
+    as tier_must_still_be_free,
+  (select verified from profiles
+    where id = 'aaaa9999-0000-0000-0000-000000000009') as verified_must_be_false;
+
+\echo '=== and the grants work when a server calls them ==='
+insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000001');
+select grant_premium('ffff2222-0000-0000-0000-000000000001', now() + interval '30 days', 'apple', 'tx-1');
+select tier as tier_must_be_premium, (expires_at > now()) as not_expired_must_be_true
+  from entitlements where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+select record_verification('ffff2222-0000-0000-0000-000000000001', true, 'test-provider');
+select verified as verified_must_be_true from profiles
+  where id = 'ffff2222-0000-0000-0000-000000000001';
+select count(*) as attempts_must_be_1 from verification_attempts
+  where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+select revoke_premium('ffff2222-0000-0000-0000-000000000001');
+select tier as tier_must_be_free from entitlements
+  where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+\echo '=== a failed check records the attempt and grants nothing ==='
+insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000002');
+select record_verification('ffff2222-0000-0000-0000-000000000002', false, 'test-provider');
+select verified as verified_must_be_false from profiles
+  where id = 'ffff2222-0000-0000-0000-000000000002';

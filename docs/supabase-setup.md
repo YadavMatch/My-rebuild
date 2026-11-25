@@ -20,7 +20,11 @@ it before this step rather than after.
 Save the database password somewhere safe. You will not be shown it again,
 and you need it for the CLI.
 
-## 2. Run the migration
+## 2. Run the migrations
+
+There are seven now, applied in order. `docs/going-live.md` lists what each
+one does and what still needs an account of yours.
+
 
 Easiest path — the dashboard:
 

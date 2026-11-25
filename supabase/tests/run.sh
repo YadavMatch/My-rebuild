@@ -21,8 +21,14 @@ psql -h "$DIR" -p "$PORT" -U postgres -qc 'create database nm' >/dev/null
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 create schema if not exists auth;
-grant usage on schema public, auth to anon, authenticated;
+grant usage on schema public, auth to anon, authenticated, service_role;
+-- Supabase grants EXECUTE on functions in public to anon and authenticated by
+-- default, applied as each function is created. Modelling it here rather than
+-- granting after the migrations is the difference between testing whether a
+-- revoke holds and handing the privilege back once it has run.
+alter default privileges in schema public grant execute on functions to anon, authenticated;
 create table auth.users (id uuid primary key default gen_random_uuid(),
   raw_user_meta_data jsonb default '{}'::jsonb);
 create or replace function auth.uid() returns uuid language sql stable
@@ -80,6 +86,7 @@ stub "$HERE/../migrations/0003_move_geo_private.sql" > "$DIR/migration3.sql"
 stub "$HERE/../migrations/0004_feed_without_location.sql" > "$DIR/migration4.sql"
 stub "$HERE/../migrations/0005_profile_photos.sql"          > "$DIR/migration5.sql"
 stub "$HERE/../migrations/0006_message_push.sql"            > "$DIR/migration6.sql"
+stub "$HERE/../migrations/0007_grants.sql"                  > "$DIR/migration7.sql"
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration2.sql"
@@ -87,5 +94,6 @@ psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migra
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration4.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration5.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration6.sql"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration7.sql"
 echo "migrations applied"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"
