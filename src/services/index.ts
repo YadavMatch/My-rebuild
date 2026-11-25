@@ -16,6 +16,11 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  fetchPromptCatalogue as supabaseFetchPrompts,
+  saveMyPrompts as supabaseSavePrompts,
+  updateMyProfile as supabaseUpdateProfile,
+  PLACEHOLDER_NAME,
+  type ProfileEdit,
   hasStoredLocation as supabaseHasLocation,
   saveLocation as supabaseSaveLocation,
   recordAgeConfirmation as supabaseRecordAge,
@@ -85,6 +90,42 @@ export async function hasStoredLocation(): Promise<boolean> {
     return supabaseHasLocation();
   }
   return true;
+}
+
+export { PLACEHOLDER_NAME } from '@/services/supabase-service';
+export type { ProfileEdit } from '@/services/supabase-service';
+
+/** Saves the editable half of the signed-in person's profile. */
+export async function updateMyProfile(edit: ProfileEdit): Promise<void> {
+  if (!isSupabaseConfigured || !hasSupabaseSession()) {
+    throw new Error('Sign in to save your profile.');
+  }
+  await supabaseUpdateProfile(edit);
+}
+
+/** The prompt questions on offer. Empty without an account, which hides the section. */
+export async function fetchPromptCatalogue(): Promise<{ id: number; question: string }[]> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseFetchPrompts();
+  }
+  return [];
+}
+
+/** Replaces the signed-in person's prompt answers. */
+export async function saveMyPrompts(
+  answers: { promptId: number; answer: string }[],
+): Promise<void> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    await supabaseSavePrompts(answers);
+  }
+}
+
+/**
+ * Whether this account still has the name the signup trigger gave it, and so
+ * has never been through setup.
+ */
+export function needsProfileSetup(name: string): boolean {
+  return name.trim().length === 0 || name === PLACEHOLDER_NAME;
 }
 
 export const fetchDeck: DataService['fetchDeck'] = (ids) => service().fetchDeck(ids);

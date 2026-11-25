@@ -47,6 +47,15 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="sign-in" options={{ title: '' }} />
+            <Stack.Screen
+              name="profile-setup"
+              options={{
+                headerShown: false,
+                // There is no sensible "back" from here: the account exists
+                // and has a placeholder name until this is done.
+                gestureEnabled: false,
+              }}
+            />
             <Stack.Screen name="age-gate" options={{ headerShown: false }} />
             <Stack.Screen
               name="underage"

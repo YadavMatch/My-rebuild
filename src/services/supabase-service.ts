@@ -110,6 +110,88 @@ export async function hasStoredLocation(): Promise<boolean> {
   return Boolean(data?.geo);
 }
 
+/**
+ * The name the signup trigger gives a new account.
+ *
+ * Shared with the client so "has this person set their profile up yet?" is a
+ * comparison against one constant rather than a guess. Setup refuses to save
+ * this as a name, which is what stops anyone looping back into it forever.
+ */
+export const PLACEHOLDER_NAME = 'New member';
+
+export type ProfileEdit = {
+  name: string;
+  age: number;
+  jobTitle: string;
+  location: string;
+  bio: string;
+  interests: string[];
+  emoji: string;
+};
+
+/** Writes the editable half of a profile. The rest is not the client's to set. */
+export async function updateMyProfile(edit: ProfileEdit): Promise<void> {
+  const me = requireUser();
+  const { error } = await supabase()
+    .from('profiles')
+    .update({
+      name: edit.name,
+      age: edit.age,
+      job_title: edit.jobTitle,
+      location_label: edit.location,
+      bio: edit.bio,
+      interests: edit.interests,
+      emoji: edit.emoji,
+      last_active_at: new Date().toISOString(),
+    })
+    .eq('id', me);
+  if (error) {
+    throw new Error(error.message);
+  }
+  profileCache.delete(me);
+  currentUserCache = UNKNOWN_USER;
+}
+
+/** The questions someone can answer, from the catalogue the schema seeds. */
+export async function fetchPromptCatalogue(): Promise<{ id: number; question: string }[]> {
+  const { data, error } = await supabase()
+    .from('prompts')
+    .select('id, question')
+    .eq('active', true)
+    .order('id');
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? [];
+}
+
+/** Replaces the signed-in person's prompt answers. */
+export async function saveMyPrompts(
+  answers: { promptId: number; answer: string }[],
+): Promise<void> {
+  const me = requireUser();
+  const client = supabase();
+
+  // Answers are replaced wholesale rather than merged, so clearing one
+  // actually removes it instead of leaving the old text behind.
+  const keep = answers.filter((a) => a.answer.trim().length > 0);
+  await client.from('profile_prompts').delete().eq('profile_id', me);
+  if (keep.length === 0) {
+    return;
+  }
+  const { error } = await client.from('profile_prompts').insert(
+    keep.map((a, i) => ({
+      profile_id: me,
+      prompt_id: a.promptId,
+      answer: a.answer.trim(),
+      position: i,
+    })),
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 /** Profiles already seen, so rows that hold only an id can render without a fetch. */
 const profileCache = new Map<string, Profile>();
 

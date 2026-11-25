@@ -75,7 +75,9 @@ export default function SignInScreen() {
       recordAgeConfirmation(state.dateOfBirth, state.ageConfirmedAt).catch(() => {});
     }
     completeWelcome().catch(() => {});
-    router.replace('/(tabs)');
+    // A new account carries the placeholder name the signup trigger gave it,
+    // so it goes to setup. Signing in means the profile already exists.
+    router.replace(isSignUp ? '/profile-setup' : '/(tabs)');
   }
 
   function switchMode() {
