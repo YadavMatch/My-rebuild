@@ -427,9 +427,17 @@ const main = async () => {
     record('both channels subscribed', problems.length === 0, problems.join('; '));
     await new Promise((r) => setTimeout(r, 1500));
 
-    await p1.client
+    // Checked, not fired and forgotten. An insert that quietly failed would
+    // show up as "nothing was delivered", which reads like a realtime fault
+    // and hides the actual one.
+    const sent = await p1.client
       .from('messages')
       .insert({ match_id: liveMatch.id, sender_id: p1.id, body: 'streamed' });
+    record(
+      'the message was accepted',
+      !sent.error,
+      sent.error ? `${sent.error.code} ${sent.error.message}` : '',
+    );
 
     // Poll rather than sleep a fixed time. A fixed wait makes this flaky,
     // and a flaky security check is worse than none: "the stranger received
