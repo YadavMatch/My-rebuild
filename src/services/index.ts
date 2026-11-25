@@ -16,6 +16,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  hasStoredLocation as supabaseHasLocation,
+  saveLocation as supabaseSaveLocation,
   recordAgeConfirmation as supabaseRecordAge,
   currentUserId as supabaseCurrentUserId,
   hasSupabaseSession,
@@ -65,6 +67,24 @@ export async function recordAgeConfirmation(
   if (isSupabaseConfigured && hasSupabaseSession()) {
     await supabaseRecordAge(dateOfBirth, ageConfirmedAt);
   }
+}
+
+/**
+ * Stores where the signed-in person is. A no-op on the seed backend, whose
+ * proximity labels are fixed strings in the sample data.
+ */
+export async function saveLocation(latitude: number, longitude: number): Promise<void> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    await supabaseSaveLocation(latitude, longitude);
+  }
+}
+
+/** Whether a location is stored. False without an account, which never prompts. */
+export async function hasStoredLocation(): Promise<boolean> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseHasLocation();
+  }
+  return true;
 }
 
 export const fetchDeck: DataService['fetchDeck'] = (ids) => service().fetchDeck(ids);

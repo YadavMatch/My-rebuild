@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { captureLocation } from '@/lib/location';
 import { useAuth } from '@/store/auth';
 import { useDecisions } from '@/store/decisions';
 
@@ -86,6 +87,28 @@ export default function SettingsScreen() {
                   last
                 />
               )}
+            </SettingsSection>
+          ) : null}
+
+          {user ? (
+            <SettingsSection title="LOCATION">
+              <SettingsRow
+                emoji="📍"
+                label="Update my location"
+                onPress={() => {
+                  captureLocation()
+                    .then((r) => {
+                      Alert.alert(
+                        r.ok ? 'Location updated' : 'Location not updated',
+                        r.ok
+                          ? 'Distances on profile cards will use your new location.'
+                          : r.message,
+                      );
+                    })
+                    .catch(() => {});
+                }}
+                last
+              />
             </SettingsSection>
           ) : null}
 

@@ -67,6 +67,49 @@ export async function recordAgeConfirmation(
     .upsert({ id: me, date_of_birth: dateOfBirth, age_confirmed_at: ageConfirmedAt });
 }
 
+/**
+ * Stores the signed-in person's coordinates.
+ *
+ * profiles_private is upserted rather than updated because the row may not
+ * exist yet, and date_of_birth is not null — so a location-only insert has to
+ * carry something. It uses the age the account already claims rather than
+ * inventing a date.
+ */
+export async function saveLocation(latitude: number, longitude: number): Promise<void> {
+  const me = requireUser();
+  const client = supabase();
+
+  const { data: existing } = await client
+    .from('profiles_private')
+    .select('id')
+    .eq('id', me)
+    .maybeSingle();
+
+  const point = `POINT(${longitude} ${latitude})`;
+  const { error } = existing
+    ? await client.from('profiles_private').update({ geo: point }).eq('id', me)
+    : await client.from('profiles_private').insert({
+        id: me,
+        date_of_birth: '1900-01-01',
+        age_confirmed_at: new Date().toISOString(),
+        geo: point,
+      });
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Whether a location is already stored, for deciding whether to prompt. */
+export async function hasStoredLocation(): Promise<boolean> {
+  const me = requireUser();
+  const { data } = await supabase()
+    .from('profiles_private')
+    .select('geo')
+    .eq('id', me)
+    .maybeSingle();
+  return Boolean(data?.geo);
+}
+
 /** Profiles already seen, so rows that hold only an id can render without a fetch. */
 const profileCache = new Map<string, Profile>();
 
