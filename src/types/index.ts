@@ -27,8 +27,15 @@ export type Profile = {
    * distance that updates lets someone trilaterate a home address.
    */
   proximity: string;
-  /** Stands in for a profile photo until uploads exist. */
+  /** Stands in for a profile photo when there is no upload. */
   emoji: string;
+  /**
+   * A short-lived signed URL for the uploaded photo, or null.
+   *
+   * Signed rather than public: the bucket is private, so a leaked link stops
+   * working and is useless to anyone without an account.
+   */
+  photoUrl?: string | null;
   /** Identity-verified. Shown as a teal check beside the name. */
   verified: boolean;
   bio: string;
@@ -44,6 +51,7 @@ export type CurrentUser = {
   jobTitle: string;
   location: string;
   emoji: string;
+  photoUrl?: string | null;
   verified: boolean;
   bio: string;
   interests: string[];

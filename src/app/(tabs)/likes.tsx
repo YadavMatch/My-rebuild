@@ -59,6 +59,7 @@ export default function LikesScreen() {
                 style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
                 <ProfilePhoto
                   emoji={item.emoji}
+                  photoUrl={item.photoUrl}
                   name={item.name}
                   size={56}
                   style={styles.cardPhoto}

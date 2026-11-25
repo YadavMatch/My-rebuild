@@ -115,6 +115,7 @@ export default function MessagesScreen() {
                   style={styles.row}>
                   <ProfilePhoto
                     emoji={profile.emoji}
+                    photoUrl={profile.photoUrl}
                     name={profile.name}
                     size={26}
                     style={styles.avatar}

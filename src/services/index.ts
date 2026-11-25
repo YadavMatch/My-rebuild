@@ -16,6 +16,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  uploadProfilePhoto as supabaseUploadPhoto,
+  removeProfilePhoto as supabaseRemovePhoto,
   subscribeToMyMessages as supabaseSubscribeMine,
   subscribeToConversation as supabaseSubscribe,
   fetchPromptCatalogue as supabaseFetchPrompts,
@@ -153,6 +155,21 @@ export function subscribeToMyMessages(onChange: () => void): () => void {
     return supabaseSubscribeMine(onChange);
   }
   return () => {};
+}
+
+/** Stores a profile photo and returns a signed URL for it. */
+export async function uploadProfilePhoto(base64: string, mimeType: string): Promise<string> {
+  if (!isSupabaseConfigured || !hasSupabaseSession()) {
+    throw new Error('Sign in to add a photo.');
+  }
+  return supabaseUploadPhoto(base64, mimeType);
+}
+
+/** Removes the stored photo, falling back to the emoji. */
+export async function removeProfilePhoto(): Promise<void> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    await supabaseRemovePhoto();
+  }
 }
 
 export const fetchDeck: DataService['fetchDeck'] = (ids) => service().fetchDeck(ids);

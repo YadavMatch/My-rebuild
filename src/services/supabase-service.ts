@@ -291,9 +291,15 @@ type ProfileRow = {
   interests: string[] | null;
   emoji: string | null;
   verified: boolean;
+  photo_path?: string | null;
 };
 
-function toProfile(row: ProfileRow, proximity: string, prompts: Prompt[]): Profile {
+function toProfile(
+  row: ProfileRow,
+  proximity: string,
+  prompts: Prompt[],
+  photoUrl: string | null = null,
+): Profile {
   return {
     id: row.id,
     name: row.name,
@@ -302,6 +308,7 @@ function toProfile(row: ProfileRow, proximity: string, prompts: Prompt[]): Profi
     location: row.location_label ?? '',
     proximity,
     emoji: row.emoji ?? '👋',
+    photoUrl,
     verified: row.verified,
     bio: row.bio ?? '',
     interests: row.interests ?? [],
@@ -309,12 +316,111 @@ function toProfile(row: ProfileRow, proximity: string, prompts: Prompt[]): Profi
   };
 }
 
-function toCurrentUser(row: ProfileRow, prompts: Prompt[]): CurrentUser {
-  const { proximity: _ignored, ...rest } = toProfile(row, '', prompts);
+function toCurrentUser(
+  row: ProfileRow,
+  prompts: Prompt[],
+  photoUrl: string | null = null,
+): CurrentUser {
+  const { proximity: _ignored, ...rest } = toProfile(row, '', prompts, photoUrl);
   return rest;
 }
 
-const PROFILE_COLUMNS = 'id, name, age, job_title, location_label, bio, interests, emoji, verified';
+const PROFILE_COLUMNS =
+  'id, name, age, job_title, location_label, bio, interests, emoji, verified, photo_path';
+
+const PHOTO_BUCKET = 'profile-photos';
+/** Long enough to browse a deck, short enough that a copied link dies quickly. */
+const PHOTO_URL_TTL_SECONDS = 60 * 60;
+
+/**
+ * Signed URLs for a set of stored photos, in one request.
+ *
+ * The bucket is private, so every photo needs signing. Doing it per card
+ * would be one round trip per profile in the deck.
+ */
+async function signPhotos(paths: string[]): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) {
+    return urls;
+  }
+  const { data, error } = await supabase()
+    .storage.from(PHOTO_BUCKET)
+    .createSignedUrls(unique, PHOTO_URL_TTL_SECONDS);
+  if (error || !data) {
+    // A card without its photo still shows the emoji, which is better than
+    // failing the whole deck because one signature could not be produced.
+    return urls;
+  }
+  for (const row of data) {
+    if (row.signedUrl && row.path) {
+      urls.set(row.path, row.signedUrl);
+    }
+  }
+  return urls;
+}
+
+/**
+ * Decodes base64 without pulling in a dependency.
+ *
+ * The picker hands back base64 because reading the file:// uri into a blob
+ * is unreliable on native; Supabase storage wants bytes.
+ */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Stores a profile photo and points the profile at it.
+ *
+ * The path is `<uid>/avatar.<ext>`, which is what the storage policy checks:
+ * writes are confined to a folder named after the uploader. Upserting one
+ * fixed name per person means changing a photo replaces it rather than
+ * leaving the old one behind in the bucket.
+ */
+export async function uploadProfilePhoto(base64: string, mimeType: string): Promise<string> {
+  const me = requireUser();
+  const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${me}/avatar.${extension}`;
+
+  const { error: uploadError } = await supabase()
+    .storage.from(PHOTO_BUCKET)
+    .upload(path, base64ToBytes(base64), { contentType: mimeType, upsert: true });
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const { error } = await supabase().from('profiles').update({ photo_path: path }).eq('id', me);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  profileCache.delete(me);
+  currentUserCache = UNKNOWN_USER;
+
+  const signed = await signPhotos([path]);
+  return signed.get(path) ?? '';
+}
+
+/** Removes the photo, falling back to the emoji. */
+export async function removeProfilePhoto(): Promise<void> {
+  const me = requireUser();
+  const { data } = await supabase().from('profiles').select('photo_path').eq('id', me).maybeSingle();
+  if (data?.photo_path) {
+    await supabase().storage.from(PHOTO_BUCKET).remove([data.photo_path]);
+  }
+  const { error } = await supabase().from('profiles').update({ photo_path: null }).eq('id', me);
+  if (error) {
+    throw new Error(error.message);
+  }
+  profileCache.delete(me);
+  currentUserCache = UNKNOWN_USER;
+}
 
 /** A placeholder so a screen rendering before the first fetch has a shape to use. */
 const UNKNOWN_USER: CurrentUser = {
@@ -395,9 +501,21 @@ async function hydrateProfiles(ids: string[]): Promise<void> {
     return;
   }
   const { data } = await supabase().from('profiles').select(PROFILE_COLUMNS).in('id', missing);
-  const prompts = await promptsFor(missing);
-  for (const row of (data ?? []) as ProfileRow[]) {
-    profileCache.set(row.id, toProfile(row, 'Distance unknown', prompts.get(row.id) ?? []));
+  const rows = (data ?? []) as ProfileRow[];
+  const [prompts, photos] = await Promise.all([
+    promptsFor(missing),
+    signPhotos(rows.map((r) => r.photo_path ?? '')),
+  ]);
+  for (const row of rows) {
+    profileCache.set(
+      row.id,
+      toProfile(
+        row,
+        'Distance unknown',
+        prompts.get(row.id) ?? [],
+        photos.get(row.photo_path ?? '') ?? null,
+      ),
+    );
   }
 }
 
@@ -449,8 +567,13 @@ export const supabaseService: DataService = {
       throw new Error(error.message);
     }
     const rows = (data ?? []) as (ProfileRow & { proximity: string })[];
-    const prompts = await promptsFor(rows.map((r) => r.id));
-    const deck = rows.map((r) => toProfile(r, r.proximity, prompts.get(r.id) ?? []));
+    const [prompts, photos] = await Promise.all([
+      promptsFor(rows.map((r) => r.id)),
+      signPhotos(rows.map((r) => r.photo_path ?? '')),
+    ]);
+    const deck = rows.map((r) =>
+      toProfile(r, r.proximity, prompts.get(r.id) ?? [], photos.get(r.photo_path ?? '') ?? null),
+    );
     deck.forEach((p) => profileCache.set(p.id, p));
     return deck;
   },
@@ -474,8 +597,16 @@ export const supabaseService: DataService = {
     if (error || !data) {
       return currentUserCache;
     }
-    const prompts = await promptsFor([me]);
-    currentUserCache = toCurrentUser(data as ProfileRow, prompts.get(me) ?? []);
+    const row = data as ProfileRow;
+    const [prompts, photos] = await Promise.all([
+      promptsFor([me]),
+      signPhotos([row.photo_path ?? '']),
+    ]);
+    currentUserCache = toCurrentUser(
+      row,
+      prompts.get(me) ?? [],
+      photos.get(row.photo_path ?? '') ?? null,
+    );
     return currentUserCache;
   },
 

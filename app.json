@@ -38,6 +38,14 @@
         {
           "locationWhenInUsePermission": "NearMatch uses your location to show you people nearby and to tell them roughly how far away you are. Your exact location is never shown to anyone."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "NearMatch needs your photos so you can choose a picture for your profile.",
+          "cameraPermission": "NearMatch needs your camera so you can take a picture for your profile.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

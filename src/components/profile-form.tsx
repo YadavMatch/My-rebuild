@@ -14,12 +14,16 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { PressableScale } from '@/components/pressable-scale';
+import { ProfilePhoto } from '@/components/profile-photo';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ageFromStoredDate } from '@/lib/age';
+import { choosePhoto } from '@/lib/photo';
 import {
   PLACEHOLDER_NAME,
+  removeProfilePhoto,
+  uploadProfilePhoto,
   fetchCurrentUser,
   fetchPromptCatalogue,
   saveMyPrompts,
@@ -65,6 +69,8 @@ export function ProfileForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const age = useMemo(() => ageFromStoredDate(state.dateOfBirth), [state.dateOfBirth]);
 
@@ -87,6 +93,7 @@ export function ProfileForm({
           if (me.emoji) {
             setEmoji(me.emoji);
           }
+          setPhotoUrl(me.photoUrl ?? null);
         }
         setCatalogue(prompts);
         if (prompts.length > 0) {
@@ -112,6 +119,40 @@ export function ProfileForm({
       cancelled = true;
     };
   }, []);
+
+  /** Uploads immediately rather than on save: a photo is its own action, and
+   *  holding megabytes in memory until the form is submitted helps nobody. */
+  async function pickPhoto() {
+    setPhotoBusy(true);
+    setError(null);
+    const choice = await choosePhoto();
+    if (!choice.ok) {
+      setPhotoBusy(false);
+      if (choice.reason !== 'cancelled') {
+        setError(choice.message);
+      }
+      return;
+    }
+    try {
+      setPhotoUrl(await uploadProfilePhoto(choice.base64, choice.mimeType));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The photo could not be uploaded.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function dropPhoto() {
+    setPhotoBusy(true);
+    try {
+      await removeProfilePhoto();
+      setPhotoUrl(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The photo could not be removed.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   function toggleInterest(label: string) {
     setInterests((current) =>
@@ -193,6 +234,43 @@ export function ProfileForm({
       {header}
 
       <Section title="HOW YOU APPEAR">
+        <View style={styles.photoRow}>
+          <ProfilePhoto emoji={emoji} photoUrl={photoUrl} name={name || '?'} size={44} style={styles.photo} />
+          <View style={styles.photoActions}>
+            <PressableScale
+              onPress={() => {
+                pickPhoto().catch(() => {});
+              }}
+              disabled={photoBusy}
+              accessibilityRole="button"
+              accessibilityLabel={photoUrl ? 'Change your photo' : 'Add a photo'}
+              accessibilityState={{ disabled: photoBusy }}
+              style={[styles.photoButton, { backgroundColor: theme.accent, opacity: photoBusy ? 0.6 : 1 }]}>
+              {photoBusy ? (
+                <ActivityIndicator color={theme.onAccent} />
+              ) : (
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {photoUrl ? 'Change photo' : 'Add a photo'}
+                </ThemedText>
+              )}
+            </PressableScale>
+            {photoUrl ? (
+              <PressableScale
+                onPress={() => {
+                  dropPhoto().catch(() => {});
+                }}
+                disabled={photoBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Remove your photo"
+                style={styles.photoRemove}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Remove
+                </ThemedText>
+              </PressableScale>
+            ) : null}
+          </View>
+        </View>
+
         <View style={styles.emojiRow}>
           {EMOJI_CHOICES.map((choice) => (
             <PressableScale
@@ -213,7 +291,9 @@ export function ProfileForm({
           ))}
         </View>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
-          Photos are not built yet, so this stands in for one.
+          {photoUrl
+            ? 'Your emoji shows anywhere the photo has not loaded.'
+            : 'Without a photo, this emoji is what people see.'}
         </ThemedText>
       </Section>
 
@@ -415,6 +495,17 @@ const styles = StyleSheet.create({
   },
   readonly: { justifyContent: 'center' },
   bio: { minHeight: 110, textAlignVertical: 'top' },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  photo: { width: 96, height: 96, borderRadius: Radius.lg },
+  photoActions: { gap: Spacing.one, flex: 1 },
+  photoButton: {
+    minHeight: 44,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  photoRemove: { minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   emojiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   emoji: {
     width: 52,
