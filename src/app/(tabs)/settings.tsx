@@ -209,6 +209,13 @@ export default function SettingsScreen() {
               }}
             />
             )}
+            {/*
+              Only on sample data. With an account, Premium comes from the
+              entitlements table, which the client cannot write — a toggle
+              that appears to grant it would promise unlimited likes the
+              database then refuses.
+            */}
+            {user ? null : (
             <SettingsRow
               emoji="🧪"
               label={
@@ -223,6 +230,7 @@ export default function SettingsScreen() {
                 setPremium(!state.premium).catch(() => {});
               }}
             />
+            )}
             <SettingsRow
               emoji="👋"
               label="View welcome screen"

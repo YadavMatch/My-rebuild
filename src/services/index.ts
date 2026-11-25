@@ -16,6 +16,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
 import {
+  fetchEntitlement as supabaseFetchEntitlement,
   savePushToken as supabaseSavePushToken,
   forgetPushToken as supabaseForgetPushToken,
   uploadProfilePhoto as supabaseUploadPhoto,
@@ -187,6 +188,19 @@ export async function forgetPushToken(token: string): Promise<void> {
   if (isSupabaseConfigured && hasSupabaseSession()) {
     await supabaseForgetPushToken(token);
   }
+}
+
+/**
+ * Whether Premium is active, from the server when there is an account.
+ *
+ * Returns null on the seed backend, where the Settings simulation is the
+ * only source and should be left alone.
+ */
+export async function fetchEntitlement(): Promise<boolean | null> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseFetchEntitlement();
+  }
+  return null;
 }
 
 export const fetchDeck: DataService['fetchDeck'] = (ids) => service().fetchDeck(ids);

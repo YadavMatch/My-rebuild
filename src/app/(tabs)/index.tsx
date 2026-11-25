@@ -88,7 +88,15 @@ export default function DiscoverScreen() {
             params: { id: profile.id, conversationId },
           });
         })
-        .catch(() => {});
+        .catch((e: unknown) => {
+          // The daily cap is enforced by a database trigger, so the server
+          // can refuse a like the client thought was allowed. Swallowing it
+          // made the card vanish and the like disappear with it.
+          setDeck((current) => (current ? [profile, ...current] : [profile]));
+          if (e instanceof Error && e.message === 'daily_like_limit_reached') {
+            router.push('/paywall');
+          }
+        });
     },
     [like, pass, router, canLike],
   );

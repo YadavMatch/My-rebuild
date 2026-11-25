@@ -273,6 +273,26 @@ export async function forgetPushToken(token: string): Promise<void> {
   await supabase().from('push_tokens').delete().eq('user_id', me).eq('token', token);
 }
 
+/**
+ * Whether this account is actually on Premium, according to the server.
+ *
+ * The client cannot write this column — 0001 revoked update on entitlements
+ * — so it is the same value the daily-like trigger reads when it decides
+ * whether to refuse a like.
+ */
+export async function fetchEntitlement(): Promise<boolean> {
+  const me = requireUser();
+  const { data } = await supabase()
+    .from('entitlements')
+    .select('tier, expires_at')
+    .eq('user_id', me)
+    .maybeSingle();
+  if (!data || data.tier !== 'premium') {
+    return false;
+  }
+  return data.expires_at === null || new Date(data.expires_at) > new Date();
+}
+
 /** Profiles already seen, so rows that hold only an id can render without a fetch. */
 const profileCache = new Map<string, Profile>();
 
