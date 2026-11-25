@@ -135,6 +135,13 @@ export default function SettingsScreen() {
               onPress={confirmDeleteAccount}
               destructive
             />
+            {/*
+              Only offered on sample data. With a real account the swipes and
+              matches live on the server, so this would clear local state and
+              appear to do nothing — a button that lies is worse than one that
+              is not there.
+            */}
+            {user ? null : (
             <SettingsRow
               emoji="🔄"
               label="Reset swipes and matches"
@@ -155,6 +162,7 @@ export default function SettingsScreen() {
                 );
               }}
             />
+            )}
             <SettingsRow
               emoji="🧪"
               label={

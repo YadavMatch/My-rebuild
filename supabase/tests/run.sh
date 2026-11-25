@@ -40,6 +40,7 @@ stub() {
       -e 's/st_dwithin(pp.geo, me.geo, max_distance_m)/true/' \
       -e 's/st_distance(p.geo, me.geo)/0/g' \
       -e 's/st_distance(pp.geo, me.geo)/0/g' \
+      -e 's/select pr.geo from profiles_private pr where pr.id = auth.uid()/select pr.geo from profiles_private pr where pr.id = auth.uid()/' \
       -e '/p.geo <-> me.geo,/d' \
       -e 's/pp.geo <-> me.geo/0/g' \
       -e 's/p.geo <-> me.geo/0/g' \
@@ -52,9 +53,11 @@ stub() {
 stub "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
 stub "$HERE/../migrations/0002_hide_geo.sql"       > "$DIR/migration2.sql"
 stub "$HERE/../migrations/0003_move_geo_private.sql" > "$DIR/migration3.sql"
+stub "$HERE/../migrations/0004_feed_without_location.sql" > "$DIR/migration4.sql"
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration2.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration3.sql"
+psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration4.sql"
 echo "migrations applied"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

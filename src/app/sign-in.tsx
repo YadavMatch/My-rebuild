@@ -22,6 +22,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { recordAgeConfirmation } from '@/services';
 import { useAuth } from '@/store/auth';
 import { useDecisions } from '@/store/decisions';
 
@@ -32,7 +33,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
   const { signIn, signUp, enabled } = useAuth();
-  const { completeWelcome } = useDecisions();
+  const { completeWelcome, state } = useDecisions();
 
   const [mode, setMode] = useState<Mode>(params.mode === 'signup' ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
@@ -68,6 +69,11 @@ export default function SignInScreen() {
       return;
     }
 
+    // The age gate ran before this account existed, so the declaration it
+    // collected is only on the device until now.
+    if (state.dateOfBirth && state.ageConfirmedAt) {
+      recordAgeConfirmation(state.dateOfBirth, state.ageConfirmedAt).catch(() => {});
+    }
     completeWelcome().catch(() => {});
     router.replace('/(tabs)');
   }

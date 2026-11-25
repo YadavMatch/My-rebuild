@@ -10,7 +10,7 @@ import { ScreenLoading, EmptyState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CURRENT_USER_ID, fetchConversations, getProfileSync } from '@/services';
+import { currentUserId, fetchConversations, getProfileSync } from '@/services';
 import { useDecisions } from '@/store/decisions';
 import type { Conversation } from '@/types';
 
@@ -83,7 +83,7 @@ export default function MessagesScreen() {
 
               const last = item.messages.at(-1);
               const preview = last
-                ? `${last.senderId === CURRENT_USER_ID ? 'You: ' : ''}${last.text}`
+                ? `${last.senderId === currentUserId() ? 'You: ' : ''}${last.text}`
                 : 'You matched — say hello';
 
               return (

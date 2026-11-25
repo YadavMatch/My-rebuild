@@ -344,6 +344,16 @@ const main = async () => {
     strangerView.error?.message ?? `${(strangerView.data ?? []).length} rows`,
   );
 
+  // Tidy up. The anon key cannot delete an auth user, but each account can
+  // hide its own profile, which keeps throwaway rows out of everyone's deck.
+  for (const u of [a, b, ...targetClients]) {
+    await u.client
+      .from('profiles')
+      .update({ is_discoverable: false, deleted_at: new Date().toISOString() })
+      .eq('id', u.id);
+  }
+  console.log('\ntest profiles hidden from the deck');
+
   console.log('');
   const failed = results.filter((r) => !r.passed);
   console.log(`${results.length - failed.length}/${results.length} passed`);
