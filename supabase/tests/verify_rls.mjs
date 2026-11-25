@@ -55,6 +55,25 @@ function denied(name, { error, data }) {
   record(name, false, `ALLOWED: ${JSON.stringify(data)?.slice(0, 160)}`);
 }
 
+/**
+ * A control: something that must SUCCEED.
+ *
+ * Every "cannot read X" check needs one. Without it an empty table passes
+ * trivially — the row has to exist, and its owner has to be able to see it,
+ * before "someone else cannot see it" means anything at all.
+ */
+function allowed(name, { error, data }, expectRows = true) {
+  if (error) {
+    record(name, false, `${error.code ?? ''} ${error.message}`.trim());
+    return;
+  }
+  if (expectRows && Array.isArray(data) && data.length === 0) {
+    record(name, false, 'succeeded but affected no rows');
+    return;
+  }
+  record(name, true);
+}
+
 function client() {
   return createClient(URL_, KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -123,7 +142,37 @@ const main = async () => {
     ownEnt.error?.message ?? `tier=${ownEnt.data?.tier}`,
   );
 
-  console.log('');
+  console.log('--- controls: the data under test must exist and be readable by its owner\n');
+
+  // B gives itself a private row, so "A cannot read B's DOB" is a real test
+  // rather than a query against nothing.
+  allowed(
+    'B can create its own private row',
+    await b.client
+      .from('profiles_private')
+      .insert({ id: b.id, date_of_birth: '1994-03-14', age_confirmed_at: new Date().toISOString() })
+      .select(),
+  );
+  allowed(
+    'B can read its own date of birth',
+    await b.client.from('profiles_private').select('date_of_birth').eq('id', b.id),
+  );
+
+  // Likewise a swipe, so "A cannot read B's swipes" has something to fail on.
+  allowed(
+    'B can record its own swipe',
+    await b.client.from('swipes').insert({ actor_id: b.id, target_id: a.id, decision: 'like' }).select(),
+  );
+  allowed('B can read its own swipes', await b.client.from('swipes').select('*').eq('actor_id', b.id));
+
+  // And a write that must work, so "A cannot edit B" is not passing because
+  // updates are broken for everyone.
+  allowed(
+    'A can rename itself',
+    await a.client.from('profiles').update({ name: 'Test A' }).eq('id', a.id).select(),
+  );
+
+  console.log('\n--- attacks: every one of these must be refused\n');
 
   // 1. Self-granting the verification badge.
   denied(
@@ -144,17 +193,14 @@ const main = async () => {
     await a.client.from('matches').insert({ user_a: lo, user_b: hi }).select(),
   );
 
-  // 4. Reading another person's date of birth.
+  // 4. Reading another person's date of birth. The row now exists.
   denied(
     "A cannot read B's date of birth",
     await a.client.from('profiles_private').select('date_of_birth').eq('id', b.id),
   );
 
-  // 5. Reading another person's swipes.
-  denied(
-    "A cannot read B's swipes",
-    await a.client.from('swipes').select('*').eq('actor_id', b.id),
-  );
+  // 5. Reading another person's swipes. The swipe now exists.
+  denied("A cannot read B's swipes", await a.client.from('swipes').select('*').eq('actor_id', b.id));
 
   // 6. Editing someone else's profile.
   denied(
@@ -171,9 +217,105 @@ const main = async () => {
       .select(),
   );
 
+  // ---------------------------------------------------------------------
+  // The daily like cap: 6 for free accounts, and passes are exempt.
+  //
+  // This is the product rule, and it is enforced by a trigger rather than by
+  // the client, so it is worth proving against the real database. The pass
+  // case matters because an earlier version of the trigger capped passes too,
+  // which trapped you on a card you did not want once your likes ran out.
+  // ---------------------------------------------------------------------
+  console.log('\n--- the daily like cap\n');
+
+  const targetClients = [];
+  for (let i = 0; i < 7; i++) {
+    targetClients.push(await makeUser(`t${i}`));
+  }
+  const targets = targetClients.map((t) => t.id);
+
+  let likesAccepted = 0;
+  let capError = null;
+  for (let i = 0; i < 7; i++) {
+    const { error } = await a.client
+      .from('swipes')
+      .insert({ actor_id: a.id, target_id: targets[i], decision: 'like' });
+    if (error) {
+      capError = error;
+      break;
+    }
+    likesAccepted++;
+  }
+
+  record(
+    'a free account gets exactly 6 likes',
+    likesAccepted === 6,
+    `${likesAccepted} accepted before refusal`,
+  );
+  record(
+    'the 7th like is refused by the database',
+    Boolean(capError) && /daily_like_limit_reached/.test(capError?.message ?? ''),
+    capError ? capError.message : 'no error raised',
+  );
+
+  // At the cap, passing must still work.
+  const passAtCap = await a.client
+    .from('swipes')
+    .insert({ actor_id: a.id, target_id: targets[6], decision: 'pass' })
+    .select();
+  allowed('passing still works at the cap', passAtCap);
+
+  // ---------------------------------------------------------------------
+  // The reciprocal-like trigger: a match appears only when both sides like.
+  // ---------------------------------------------------------------------
+  console.log('\n--- matching\n');
+
+  // A already liked targets 0..5. Nobody has liked A back yet.
+  const beforeMatch = await a.client.from('matches').select('*');
+  record(
+    'no match exists before the like is returned',
+    !beforeMatch.error && (beforeMatch.data ?? []).length === 0,
+    beforeMatch.error?.message ?? `${(beforeMatch.data ?? []).length} rows`,
+  );
+
+  // target0 likes A back.
+  const t0 = targetClients[0];
+  allowed(
+    'target0 can like A back',
+    await t0.client.from('swipes').insert({ actor_id: t0.id, target_id: a.id, decision: 'like' }).select(),
+  );
+
+  const afterA = await a.client.from('matches').select('*');
+  record(
+    'the match is created automatically for A',
+    !afterA.error && (afterA.data ?? []).length === 1,
+    afterA.error?.message ?? `${(afterA.data ?? []).length} rows`,
+  );
+
+  const afterT0 = await t0.client.from('matches').select('*');
+  record(
+    'and the other side sees the same match',
+    !afterT0.error &&
+      (afterT0.data ?? []).length === 1 &&
+      afterT0.data[0].id === afterA.data?.[0]?.id,
+    afterT0.error?.message ?? `${(afterT0.data ?? []).length} rows`,
+  );
+
+  // B is a stranger to that match and must not see it.
+  const strangerView = await b.client.from('matches').select('*');
+  record(
+    'a stranger cannot see that match',
+    !strangerView.error && (strangerView.data ?? []).length === 0,
+    strangerView.error?.message ?? `${(strangerView.data ?? []).length} rows`,
+  );
+
   console.log('');
   const failed = results.filter((r) => !r.passed);
   console.log(`${results.length - failed.length}/${results.length} passed`);
+  console.log(
+    '\nThis run created 9 throwaway accounts. Delete them in the dashboard\n' +
+      'under Authentication -> Users (they all start "nearmatch.rls."), and turn\n' +
+      '"Confirm email" back on before launch.',
+  );
   if (failed.length) {
     console.log('\nFAILED:');
     failed.forEach((f) => console.log(`  - ${f.name}: ${f.detail}`));
