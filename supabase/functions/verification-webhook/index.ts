@@ -97,9 +97,21 @@ export default {
 
     const passed = VERDICTS[name];
 
+    // Upsert, not insert. Persona retries a delivery up to seven more times
+    // and does not guarantee order, so the same verdict can arrive twice. The
+    // unique index on (provider, inquiry_id) from migration 0002 turns the
+    // repeat into a no-op rather than a second attempt row.
+    //
+    // `ignoreDuplicates` keeps the first verdict recorded for an inquiry
+    // instead of letting a later, possibly out-of-order delivery overwrite
+    // it. The badge below is a separate, idempotent update, and nothing here
+    // ever takes a badge away.
     const { error: attemptError } = await ctx.supabaseAdmin
       .from('verification_attempts')
-      .insert({ user_id: userId, passed, provider: 'persona' });
+      .upsert(
+        { user_id: userId, passed, provider: 'persona', inquiry_id: inquiryId },
+        { onConflict: 'provider,inquiry_id', ignoreDuplicates: true },
+      );
 
     if (attemptError) {
       // Non-2xx so Persona retries. Losing a verdict silently is worse than
