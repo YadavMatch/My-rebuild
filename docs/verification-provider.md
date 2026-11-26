@@ -171,10 +171,13 @@ hardened context built for OAuth; `openBrowserAsync` gets
 `is-webview=true` and an `NSCameraUsageDescription` entry, which hints the
 camera is not free here.
 
-A spike exists to answer it: `src/app/dev/camera-spike.tsx`, opened in
-[PR #9](https://github.com/YadavMatch/My-rebuild/pull/9). It runs in Expo Go
+A spike was written to answer it and has since been removed from the tree
+without being run. It is preserved as `src/app/dev/camera-spike.tsx` in
+commit `cb8fa88` of
+[PR #9](https://github.com/YadavMatch/My-rebuild/pull/9), and comes back with
+`git checkout cb8fa88 -- src/app/dev/camera-spike.tsx`. It runs in Expo Go
 and needs a physical device, because the simulator has no camera and would
-fail regardless. Outcomes:
+fail regardless. Outcomes, whenever it is run:
 
 | Result | Path |
 | --- | --- |
