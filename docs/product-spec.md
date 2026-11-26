@@ -57,7 +57,7 @@ representations rather than marketing.
 | Match on mutual like | Simulated | Backend with both users' likes |
 | Real-time messages | Not built | Realtime subscriptions |
 | Photo upload / avatar choice | Not built | Storage bucket, image picker, moderation on upload |
-| AI selfie check, photo not stored | Not built | Liveness/selfie provider, verify-then-discard pipeline |
+| AI selfie check, photo not stored | **Built, unconfigured** | A Persona account, and whether the camera opens in the in-app browser |
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | Client-side only | Server-side filtering on feed, matches and messages |
 | One-tap report on profile | **Done** | Moderation queue to receive it |
@@ -81,7 +81,11 @@ Sequenced so each step unblocks the next rather than by feature glamour.
 4. **Photos** — upload, storage, and moderation on upload.
 5. **Real-time messaging.**
 6. **Location and proximity sorting.**
-7. **Selfie verification** — needs a provider; design it to verify and
-   discard, as the copy promises.
+7. **Selfie verification** — *provider chosen and the pipeline written; see
+   [`verification-provider.md`](verification-provider.md).* Persona's Hosted
+   Flow, verify-then-discard as the copy promises: the result is recorded and
+   the selfie is deleted at the provider in the same handler. Not yet live —
+   it needs an account, and the camera has not been shown to work inside the
+   in-app browser.
 8. **Premium** — the 6-a-day free cap, unlimited and priority placement for
    subscribers, inbound likes, then billing.

@@ -161,29 +161,34 @@ through once. The hosted page costs none of it.
 Three open items. The first is a blocker; the others are commitments to
 make with open eyes.
 
-**1. Can the camera open inside the in-app browser?** Unresolved, and it
-decides the integration path. A selfie check needs `getUserMedia`. The Expo
-SDK 58 documentation for `expo-web-browser` is silent on camera access, and
-the two ways of opening a URL use different native containers:
-`openAuthSessionAsync` gets `ASWebAuthenticationSession` on iOS, which is a
-hardened context built for OAuth; `openBrowserAsync` gets
-`SFSafariViewController`. Persona's own WebView guidance asks for
-`is-webview=true` and an `NSCameraUsageDescription` entry, which hints the
-camera is not free here.
+**1. Can the camera open inside the in-app browser?** Unresolved. A selfie
+check needs `getUserMedia`, and the Expo SDK 58 documentation for
+`expo-web-browser` is silent on camera access. Persona's own WebView guidance
+asks for `is-webview=true` and an `NSCameraUsageDescription` entry, which
+hints the camera is not free here.
 
-A spike was written to answer it and has since been removed from the tree
-without being run. It is preserved as `src/app/dev/camera-spike.tsx` in
-commit `cb8fa88` of
-[PR #9](https://github.com/YadavMatch/My-rebuild/pull/9), and comes back with
-`git checkout cb8fa88 -- src/app/dev/camera-spike.tsx`. It runs in Expo Go
-and needs a physical device, because the simulator has no camera and would
-fail regardless. Outcomes, whenever it is run:
+This was originally written up as deciding between two browser modes. It no
+longer does, and the reason is worth recording. The verdict never travels
+through the device — Persona posts it to the webhook, the only writer the
+schema permits — so the client has no redirect to capture. That removes any
+need for `openAuthSessionAsync`, whose whole purpose is capturing one, and
+with it the dependency on `ASWebAuthenticationSession`, the OAuth-hardened
+container that was the more doubtful of the two. `src/services/verification.ts`
+uses `openBrowserAsync`, which gets an ordinary `SFSafariViewController`.
+
+So one question remains, with one bit of answer:
 
 | Result | Path |
 | --- | --- |
-| `openAuthSessionAsync` works | Hosted Flow as planned |
-| only `openBrowserAsync` works | Hosted Flow, with a `Linking` listener and `dismissBrowser` for the redirect |
-| neither works | `react-native-webview` plus camera permissions in `app.json` — an install and a dev build |
+| the camera works in `openBrowserAsync` | nothing to change |
+| it does not | `react-native-webview` plus camera permissions in `app.json` — an install and a dev build, and only `src/services/verification.ts` changes |
+
+The spike that would settle it was removed from the tree without being run.
+It is preserved as `src/app/dev/camera-spike.tsx` in commit `cb8fa88` of
+[PR #9](https://github.com/YadavMatch/My-rebuild/pull/9), and comes back with
+`git checkout cb8fa88 -- src/app/dev/camera-spike.tsx`. It runs in Expo Go
+and needs a physical device, because the simulator has no camera and would
+fail regardless.
 
 **2. Persona's price is unknown.** `withpersona.com/pricing` returned HTTP
 403 and was never read. Treat "usage-priced" as an assumption. For a floor to
@@ -212,26 +217,38 @@ Persona integration work, not after.
 
 ## How it wires in
 
-The schema already dictates the shape, and nothing here is specific to
-Persona beyond the string in the `provider` column — switching providers
-later means rewriting two Edge Functions, not a migration.
+Built, and waiting only on configuration. The schema dictated the shape, and
+nothing is specific to Persona beyond the string in the `provider` column —
+switching providers later means rewriting two Edge Functions, not a
+migration.
 
-1. An Edge Function creates an inquiry and returns the hosted URL. (`supabase/`
-   currently holds only `migrations/` and `tests/`; this would be its first
-   function.)
-2. The app opens that URL and comes back via `myrebuild://`.
-3. Persona's webhook hits a second Edge Function, which — with the service
-   role — inserts into `verification_attempts` with `provider: 'persona'` and
-   sets `profiles.verified` and `verified_at`. This is the only path that can
+1. `supabase/functions/verification-start` creates an inquiry and returns a
+   single-use hosted URL. It runs under `auth: 'user'`, so the caller comes
+   from the JWT and a device cannot nominate someone else. An
+   already-verified caller is turned away, because every inquiry is billable.
+2. `src/services/verification.ts` opens that URL with `openBrowserAsync`.
+   There is no redirect and no deep link: see open question 1 for why none is
+   needed.
+3. `supabase/functions/verification-webhook` verifies Persona's HMAC over the
+   raw bytes, then — with the service role — upserts into
+   `verification_attempts` with `provider: 'persona'` and sets
+   `profiles.verified` and `verified_at`. This is the only path that can
    work, given the revokes in constraint 3.
 4. That same handler calls `DELETE /api/v1/inquiries/{inquiry-id}`.
+5. `src/hooks/use-verification.ts` reads `profiles.verified` back, polling
+   for about twelve seconds, because the webhook is usually still in flight
+   when the browser closes.
 
 Step 4 belongs in the webhook handler and not in a nightly cleanup job: a
 cleanup job that fails quietly leaves selfies on a third party's servers
-while the app says otherwise.
+while the app says otherwise. It returns 500 when redaction fails, so
+Persona retries rather than the failure passing unnoticed — at the cost of a
+duplicate delivery, which migration 0002 makes harmless.
 
 The Persona API key is server-only. It belongs in Supabase Edge Function
-secrets, never in an `EXPO_PUBLIC_*` variable.
+secrets, never in an `EXPO_PUBLIC_*` variable. The three secrets the
+functions read are listed in
+[`supabase-setup.md`](supabase-setup.md#the-selfie-check).
 
 ---
 

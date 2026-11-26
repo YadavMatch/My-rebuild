@@ -92,6 +92,19 @@ jobs:
             ( cd "$dir" && deno check --frozen-lockfile index.ts )
           done
 
+      # Node, not Deno, runs the signature test: it checks the verifier
+      # against node:crypto's HMAC, so that a bug in one cannot agree with a
+      # matching bug in the other. Node reads the TypeScript by stripping its
+      # types, so nothing is compiled and no dependencies are installed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # verify_jwt is false for the webhook, so this check is the only thing
+      # between it and anyone who can POST to it. Worth failing the build for.
+      - name: Verify the webhook signature check
+        run: node --experimental-strip-types supabase/tests/verification_signature.mjs
+
   bundle:
     name: iOS bundle
     runs-on: ubuntu-latest
