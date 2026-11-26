@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { InterestChip, VerifiedBadge } from '@/components/badges';
+import { PressableScale } from '@/components/pressable-scale';
 import { ProfilePhoto } from '@/components/profile-photo';
 import { PromptCard } from '@/components/prompt-card';
 import { ScreenLoading } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useVerification } from '@/hooks/use-verification';
 import { fetchCurrentUser } from '@/services';
 import { useDecisions } from '@/store/decisions';
 import type { CurrentUser } from '@/types';
@@ -58,6 +60,8 @@ export default function EditProfileScreen() {
         </View>
       </View>
 
+      <VerificationSection />
+
       <Section title="ABOUT YOU">
         <TextInput
           value={bio}
@@ -104,6 +108,68 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</ThemedText>
       {children}
     </View>
+  );
+}
+
+/**
+ * The only way into the selfie check.
+ *
+ * Reads `profiles.verified` from the server rather than the seed profile
+ * above: the badge is awarded by the webhook, and the service role is the
+ * only thing that may set it, so the server's answer is the only one worth
+ * showing.
+ */
+function VerificationSection() {
+  const theme = useTheme();
+  const { state, message, busy, start } = useVerification();
+
+  if (state === 'verified') {
+    return (
+      <Section title="VERIFICATION">
+        <View style={[styles.verifyCard, { backgroundColor: theme.verifiedPale }]}>
+          <ThemedText style={[styles.verifyText, { color: theme.verified }]}>
+            Your selfie check passed. The photo was not kept.
+          </ThemedText>
+        </View>
+      </Section>
+    );
+  }
+
+  return (
+    <Section title="VERIFICATION">
+      <View style={[styles.verifyCard, { backgroundColor: theme.backgroundElement }]}>
+        <ThemedText style={[styles.verifyText, { color: theme.textSecondary }]}>
+          {state === 'unavailable'
+            ? 'Verification needs the backend configured and you signed in.'
+            : state === 'pending'
+              ? 'Check submitted. The badge appears once the result comes through.'
+              : 'A quick selfie check adds a Verified badge. The photo is checked and then deleted — it never reaches our database.'}
+        </ThemedText>
+      </View>
+
+      {state === 'unavailable' ? null : (
+        <PressableScale
+          onPress={() => {
+            start().catch(() => {});
+          }}
+          disabled={busy || state === 'pending'}
+          accessibilityRole="button"
+          accessibilityLabel="Start the selfie check"
+          accessibilityState={{ disabled: busy || state === 'pending' }}
+          style={[
+            styles.button,
+            { backgroundColor: busy || state === 'pending' ? theme.border : theme.accent },
+          ]}>
+          <ThemedText type="smallBold" style={[styles.buttonLabel, { color: theme.onAccent }]}>
+            {busy ? 'Opening…' : state === 'pending' ? 'Waiting for the result' : 'Take a selfie check'}
+          </ThemedText>
+        </PressableScale>
+      )}
+
+      {message ? (
+        <ThemedText style={[styles.hint, { color: theme.textSecondary }]}>{message}</ThemedText>
+      ) : null}
+    </Section>
   );
 }
 
@@ -169,6 +235,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  verifyCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing.three,
+  },
+  verifyText: {
+    fontFamily: Fonts.rounded,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
+  button: {
+    minHeight: 54,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: { fontFamily: Fonts.rounded, fontSize: 16 },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',

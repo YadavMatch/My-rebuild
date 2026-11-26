@@ -62,6 +62,49 @@ jobs:
       - name: Run expo-doctor
         run: npx expo-doctor
 
+  functions:
+    name: Edge functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          # Pinned to the minor the committed lockfiles were written with.
+          # A different minor can change the lockfile format, which
+          # --frozen-lockfile below would then report as drift.
+          deno-version: "~2.9"
+
+      # Deliberately no `npm ci`. Deno resolves npm: specifiers inside a
+      # node_modules directory when it finds one, rather than from its own
+      # cache, and then fails on packages the app does not have. The functions
+      # need none of the app's dependencies, so the directory is better absent.
+      #
+      # Each function is checked from its own directory because Deno discovers
+      # deno.json by searching upward from the working directory, not from the
+      # file being checked. Run from the repository root it would find no
+      # config at all.
+      - name: Typecheck edge functions
+        run: |
+          for dir in supabase/functions/*/; do
+            [ -f "${dir}deno.json" ] || continue
+            echo "--- ${dir}index.ts"
+            ( cd "$dir" && deno check --frozen-lockfile index.ts )
+          done
+
+      # Node, not Deno, runs the signature test: it checks the verifier
+      # against node:crypto's HMAC, so that a bug in one cannot agree with a
+      # matching bug in the other. Node reads the TypeScript by stripping its
+      # types, so nothing is compiled and no dependencies are installed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # verify_jwt is false for the webhook, so this check is the only thing
+      # between it and anyone who can POST to it. Worth failing the build for.
+      - name: Verify the webhook signature check
+        run: node --experimental-strip-types supabase/tests/verification_signature.mjs
+
   bundle:
     name: iOS bundle
     runs-on: ubuntu-latest

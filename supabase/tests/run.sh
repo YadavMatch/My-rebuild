@@ -41,4 +41,13 @@ sed -e 's/create extension if not exists postgis  with schema extensions;/-- pos
 
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
 echo "migration applied"
+
+# Later migrations need none of the rewriting above, so they are applied as
+# written. Globbed rather than listed so a new one is picked up without
+# touching this script.
+for later in "$HERE"/../migrations/0[0-9][0-9][0-9]_*.sql; do
+  case "$later" in *0001_initial_schema.sql) continue ;; esac
+  psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$later"
+  echo "$(basename "$later") applied"
+done
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

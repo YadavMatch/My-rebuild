@@ -127,6 +127,37 @@ select count(*) as premium_lifts_cap_to_7 from swipes
   where actor_id='cccccccc-cccc-cccc-cccc-cccccccccccc' and decision <> 'pass';
 
 \echo ''
+\echo '=== one inquiry records one attempt (0002) ==='
+-- A webhook retry must not turn one check into two rows. Persona retries up
+-- to seven more times and does not guarantee order, so this is the property
+-- the handler's upsert depends on.
+insert into verification_attempts (user_id, passed, provider, inquiry_id)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'persona', 'inq_retry');
+\echo '-- the same inquiry delivered again (expect: unique violation)'
+insert into verification_attempts (user_id, passed, provider, inquiry_id)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'persona', 'inq_retry');
+\echo '-- the same id from a different provider (expect: succeeds)'
+insert into verification_attempts (user_id, passed, provider, inquiry_id)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'other', 'inq_retry');
+\echo '-- two rows with no inquiry id (expect: succeeds; pre-0002 rows)'
+insert into verification_attempts (user_id, passed, provider) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'legacy'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'legacy');
+select count(*) as persona_inq_retry_must_be_1 from verification_attempts
+  where provider = 'persona' and inquiry_id = 'inq_retry';
+select count(*) as null_inquiry_rows_must_be_2 from verification_attempts
+  where inquiry_id is null;
+
+\echo '-- a client still cannot write one, inquiry id or not (expect: permission denied)'
+set role authenticated;
+set test.uid = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+insert into verification_attempts (user_id, passed, provider, inquiry_id)
+  values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true, 'persona', 'inq_forged');
+reset role;
+select count(*) as forged_with_inquiry_id_must_be_0 from verification_attempts
+  where inquiry_id = 'inq_forged';
+
+\echo ''
 \echo '=== every public table has RLS enabled ==='
 select count(*) as tables_without_rls_must_be_0
 from pg_tables where schemaname='public' and not rowsecurity;

@@ -153,11 +153,100 @@ progress.
 ./supabase/tests/run.sh
 ```
 
-Spins up a throwaway Postgres, applies the migration and asserts the
-security properties: that a client cannot grant itself a verified badge or
-Premium, cannot forge a match or a verification, cannot read anyone else's
-swipes or date of birth, and that blocking hides a conversation from both
-sides at once.
+Spins up a throwaway Postgres, applies every migration in order and asserts
+the security properties: that a client cannot grant itself a verified badge
+or Premium, cannot forge a match or a verification, cannot read anyone else's
+swipes or date of birth, that blocking hides a conversation from both sides
+at once, and that one Persona inquiry can only ever record one attempt.
+
+It needs an unprivileged user — `initdb` refuses to run as root — so under a
+root shell, `runuser -u postgres -- bash supabase/tests/run.sh`.
 
 Worth running after any schema change. Two of those assertions failed the
 first time they were written, including one that let a client verify itself.
+
+The webhook's signature check has its own test, since `verify_jwt` is off for
+that endpoint and the signature is all that protects it:
+
+```bash
+node --experimental-strip-types supabase/tests/verification_signature.mjs
+```
+
+Both run in CI.
+
+---
+
+## The selfie check
+
+Separate from the steps above, and only needed when you want verification
+working. The reasoning behind the provider choice is in
+[`verification-provider.md`](verification-provider.md); this is just what to
+do.
+
+### 1. Apply the later migrations
+
+The first migration is `0001_initial_schema.sql`. Anything numbered above it
+applies the same way — paste it into the SQL editor, or `npx supabase db
+push`. Each is wrapped in a transaction and safe to run twice.
+
+`0002_verification_inquiry_id.sql` is what makes a retried webhook harmless:
+without it, each of Persona's retries records another attempt for the same
+check.
+
+Then paste `supabase/tests/verify_on_supabase.sql` again and confirm rows
+**17** and **18** read PASS. They are specifically the 0002 checks, so they
+fail on a project that has only had 0001 applied.
+
+### 2. Set the function secrets
+
+Three, all server-only. None of them may become an `EXPO_PUBLIC_` variable:
+those are compiled into the app bundle where anyone can read them, and the
+Persona key can read every selfie in the account.
+
+```bash
+npx supabase secrets set PERSONA_API_KEY=... PERSONA_TEMPLATE_ID=itmpl_... PERSONA_WEBHOOK_SECRET=...
+```
+
+- `PERSONA_API_KEY` — a server-side key from the Persona dashboard.
+- `PERSONA_TEMPLATE_ID` — the inquiry template, which must contain a **selfie
+  verification and no government ID step**. A template with an ID step turns
+  the liveness check into document KYC, which is not what the app promises.
+- `PERSONA_WEBHOOK_SECRET` — the signing secret for the webhook. The handler
+  rejects every request whose signature does not match, and `verify_jwt` is
+  off for that function, so this secret is the only thing protecting it.
+
+A secret name cannot begin with `SUPABASE_`; the dashboard rejects it.
+
+### 3. Deploy the functions
+
+```bash
+npx supabase functions deploy verification-start verification-webhook
+```
+
+`verify_jwt` is already set to false for `verification-webhook` in
+`config.jsonc`, because Persona has no Supabase JWT to present.
+
+### 4. Point Persona at the webhook
+
+Its URL is the deployed `verification-webhook` endpoint. Add the app's scheme,
+`myrebuild://`, to Persona's redirect allowlist only if you later decide the
+flow should redirect — the client does not rely on one, because the verdict
+reaches the server directly.
+
+While you are in the dashboard, ask Persona support to set up a retention
+policy. The handler already deletes each inquiry after recording the result;
+the policy is a second line of defence if a webhook is ever lost.
+
+### 5. Check it end to end
+
+Run a sandbox verification on a real device. Two things to confirm, both
+noted as unresolved in the decision record:
+
+- The **camera opens** inside the in-app browser. If it does not, the
+  fallback is `react-native-webview`, and only
+  `src/services/verification.ts` changes.
+- The webhook payload carries a **`reference-id`**. The client sends the user
+  id twice, under `reference-id` and `meta.auto-create-account-reference-id`,
+  because Persona's docs deprecate the first but it is the one documented to
+  appear on the payload. Once you have seen a real delivery, drop whichever is
+  redundant.
