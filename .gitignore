@@ -43,3 +43,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Deno writes this when typechecking supabase/functions. It is generated
+# against the whole npm tree, so it is noise rather than a useful lockfile.
+deno.lock
