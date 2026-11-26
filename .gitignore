@@ -44,6 +44,8 @@ example
 /ios
 /android
 
-# Deno writes this when typechecking supabase/functions. It is generated
-# against the whole npm tree, so it is noise rather than a useful lockfile.
-deno.lock
+# A root-level deno.lock only appears if deno is run from the repository root,
+# where it resolves against the whole npm tree and comes out as noise. The
+# real, scoped lockfiles live beside each function's deno.json and ARE
+# committed, so this pattern is deliberately anchored to the root.
+/deno.lock
