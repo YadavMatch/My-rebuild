@@ -381,3 +381,178 @@ update profiles set is_discoverable = true, deleted_at = now()
 select is_discoverable as deleted_discoverable_must_be_false from profiles
   where id = 'eeee0000-0000-0000-0000-00000000000a';
 
+
+\echo ''
+\echo '=== photo access is no longer "any signed-in account" (0012) ==='
+
+-- Supabase grants `authenticated` SELECT on storage.objects and leaves the
+-- rows to RLS, and gives service_role table access outright. run.sh's
+-- stand-in models neither, so the grants that the policy under test assumes
+-- are made here rather than silently failing as permission errors.
+grant select on storage.objects to authenticated;
+grant select, update on reports to service_role;
+
+insert into auth.users (id) values ('aaaa1111-0000-0000-0000-000000000001');
+insert into auth.users (id) values ('aaaa1111-0000-0000-0000-000000000002');
+insert into auth.users (id) values ('aaaa1111-0000-0000-0000-000000000003');
+insert into profiles_private (id, date_of_birth, age_confirmed_at) values
+  ('aaaa1111-0000-0000-0000-000000000001', '1996-04-01', now()),
+  ('aaaa1111-0000-0000-0000-000000000002', '1996-04-01', now()),
+  ('aaaa1111-0000-0000-0000-000000000003', '1996-04-01', now());
+update profiles set name = 'Owner',    photo_path = 'aaaa1111-0000-0000-0000-000000000001/avatar.jpg', is_discoverable = true where id = 'aaaa1111-0000-0000-0000-000000000001';
+update profiles set name = 'Stranger', is_discoverable = true where id = 'aaaa1111-0000-0000-0000-000000000002';
+update profiles set name = 'Matched',  is_discoverable = true where id = 'aaaa1111-0000-0000-0000-000000000003';
+insert into storage.objects (bucket_id, name, owner)
+  values ('profile-photos', 'aaaa1111-0000-0000-0000-000000000001/avatar.jpg',
+          'aaaa1111-0000-0000-0000-000000000001');
+
+create or replace function can_read_photo(viewer uuid) returns int
+language plpgsql security invoker as $fn$
+declare n int;
+begin
+  perform set_config('test.uid', viewer::text, true);
+  select count(*) into n from storage.objects o
+    where o.name = 'aaaa1111-0000-0000-0000-000000000001/avatar.jpg';
+  return n;
+end;
+$fn$;
+
+set role authenticated;
+select
+  can_read_photo('aaaa1111-0000-0000-0000-000000000001') as owner_must_be_1,
+  can_read_photo('aaaa1111-0000-0000-0000-000000000002') as discoverable_so_stranger_must_be_1;
+reset role;
+
+\echo '-- hide the owner: a stranger loses the photo, the owner keeps it'
+update profiles set is_discoverable = false where id = 'aaaa1111-0000-0000-0000-000000000001';
+set role authenticated;
+select
+  can_read_photo('aaaa1111-0000-0000-0000-000000000002') as hidden_stranger_must_be_0,
+  can_read_photo('aaaa1111-0000-0000-0000-000000000001') as hidden_owner_must_be_1;
+reset role;
+
+\echo '-- a match keeps it even while the owner is hidden (the defect 0012 fixes)'
+insert into matches (user_a, user_b) values
+  (least('aaaa1111-0000-0000-0000-000000000001'::uuid, 'aaaa1111-0000-0000-0000-000000000003'::uuid),
+   greatest('aaaa1111-0000-0000-0000-000000000001'::uuid, 'aaaa1111-0000-0000-0000-000000000003'::uuid));
+set role authenticated;
+select can_read_photo('aaaa1111-0000-0000-0000-000000000003') as hidden_but_matched_must_be_1;
+reset role;
+
+\echo '-- blocking beats the match'
+insert into blocks (blocker_id, blocked_id)
+  values ('aaaa1111-0000-0000-0000-000000000001', 'aaaa1111-0000-0000-0000-000000000003');
+set role authenticated;
+select can_read_photo('aaaa1111-0000-0000-0000-000000000003') as matched_but_blocked_must_be_0;
+reset role;
+delete from blocks where blocker_id = 'aaaa1111-0000-0000-0000-000000000001';
+
+\echo '-- an object no profile points at is readable by nobody but its owner'
+insert into storage.objects (bucket_id, name, owner)
+  values ('profile-photos', 'aaaa1111-0000-0000-0000-000000000001/stale.jpg',
+          'aaaa1111-0000-0000-0000-000000000001');
+set role authenticated;
+set test.uid = 'aaaa1111-0000-0000-0000-000000000003';
+select count(*) as stale_object_must_be_0 from storage.objects o
+  where o.name = 'aaaa1111-0000-0000-0000-000000000001/stale.jpg';
+reset role;
+
+\echo ''
+\echo '=== messages are rate limited (0014) ==='
+
+\echo '-- a normal exchange is unaffected'
+insert into auth.users (id) values ('bbbb2222-0000-0000-0000-000000000001');
+insert into auth.users (id) values ('bbbb2222-0000-0000-0000-000000000002');
+insert into matches (user_a, user_b) values
+  (least('bbbb2222-0000-0000-0000-000000000001'::uuid, 'bbbb2222-0000-0000-0000-000000000002'::uuid),
+   greatest('bbbb2222-0000-0000-0000-000000000001'::uuid, 'bbbb2222-0000-0000-0000-000000000002'::uuid));
+
+do $$
+declare m uuid;
+begin
+  select id into m from matches where user_a = least('bbbb2222-0000-0000-0000-000000000001'::uuid,'bbbb2222-0000-0000-0000-000000000002'::uuid);
+  for i in 1..19 loop
+    insert into messages (match_id, sender_id, body)
+      values (m, 'bbbb2222-0000-0000-0000-000000000001', 'message ' || i);
+  end loop;
+end;
+$$;
+select count(*) as nineteen_must_be_19 from messages
+  where sender_id = 'bbbb2222-0000-0000-0000-000000000001';
+
+\echo '-- the 21st within a minute is refused (expect: message_rate_limit_reached)'
+-- Separate statements on purpose: in one block the 21st raising would roll
+-- the 20th back too, and the cap would look like 19.
+do $$
+declare m uuid;
+begin
+  select id into m from matches where user_a = least('bbbb2222-0000-0000-0000-000000000001'::uuid,'bbbb2222-0000-0000-0000-000000000002'::uuid);
+  insert into messages (match_id, sender_id, body) values (m, 'bbbb2222-0000-0000-0000-000000000001', 'twenty');
+end;
+$$;
+do $$
+declare m uuid;
+begin
+  select id into m from matches where user_a = least('bbbb2222-0000-0000-0000-000000000001'::uuid,'bbbb2222-0000-0000-0000-000000000002'::uuid);
+  insert into messages (match_id, sender_id, body) values (m, 'bbbb2222-0000-0000-0000-000000000001', 'twenty one');
+end;
+$$;
+select count(*) as capped_at_20_must_be_20 from messages
+  where sender_id = 'bbbb2222-0000-0000-0000-000000000001';
+
+\echo '-- the other person is unaffected by their counterpart'"'"'s limit'
+do $$
+declare m uuid;
+begin
+  select id into m from matches where user_a = least('bbbb2222-0000-0000-0000-000000000001'::uuid,'bbbb2222-0000-0000-0000-000000000002'::uuid);
+  insert into messages (match_id, sender_id, body) values (m, 'bbbb2222-0000-0000-0000-000000000002', 'hello back');
+end;
+$$;
+select count(*) as other_sender_must_be_1 from messages
+  where sender_id = 'bbbb2222-0000-0000-0000-000000000002';
+
+\echo ''
+\echo '=== the moderation queue (0015) ==='
+
+insert into reports (reporter_id, reported_id, context, reason)
+  values ('aaaa1111-0000-0000-0000-000000000002', 'aaaa1111-0000-0000-0000-000000000001',
+          'profile', 'first report');
+insert into reports (reporter_id, reported_id, context, reason)
+  values ('aaaa1111-0000-0000-0000-000000000003', 'aaaa1111-0000-0000-0000-000000000001',
+          'profile', 'second report');
+
+\echo '-- a client cannot read the queue or close a report (expect: permission denied)'
+set role authenticated;
+set test.uid = 'aaaa1111-0000-0000-0000-000000000001';
+select count(*) from moderation_queue(10);
+reset role;
+set role authenticated;
+select * from resolve_report((select id from reports limit 1), 'dismissed');
+reset role;
+
+\echo '-- a server sees them oldest first, with the repeat count'
+set role service_role;
+select
+  count(*) as queue_must_be_2,
+  min(reported_times) as reported_times_must_be_2,
+  bool_and(reported_is_visible = false) as visible_must_be_false_while_hidden
+from moderation_queue(10);
+reset role;
+
+\echo '-- claiming one takes it, and a second claim of the same gets nothing'
+set role service_role;
+select count(*) as first_claim_must_be_1 from claim_report(
+  (select id from reports order by created_at limit 1),
+  'aaaa1111-0000-0000-0000-000000000002');
+select count(*) as second_claim_must_be_0 from claim_report(
+  (select id from reports order by created_at limit 1),
+  'aaaa1111-0000-0000-0000-000000000003');
+reset role;
+
+\echo '-- resolving records the decision; an invalid outcome is refused'
+set role service_role;
+select status as resolved_must_be_actioned from resolve_report(
+  (select id from reports order by created_at limit 1), 'actioned');
+select count(*) as queue_after_resolve_must_be_1 from moderation_queue(10);
+select * from resolve_report((select id from reports order by created_at limit 1), 'open');
+reset role;

@@ -732,6 +732,13 @@ export const supabaseService: DataService = {
       .select('id, match_id, sender_id, body, created_at')
       .single();
     if (error || !data) {
+      // 0014 caps sending in the database, so this is the server refusing
+      // rather than the client having miscounted — the same shape as the
+      // daily like cap. Turned into a sentence here because, unlike the like
+      // cap, nothing downstream maps the bare code to copy.
+      if (error && /message_rate_limit_reached/.test(error.message)) {
+        throw new Error('You are sending messages too quickly. Try again in a minute.');
+      }
       throw new Error(error?.message ?? 'Message failed to send.');
     }
     return toMessage(data as MessageRow);
