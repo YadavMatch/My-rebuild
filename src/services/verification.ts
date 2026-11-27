@@ -1,5 +1,5 @@
 /**
- * Starting a selfie verification, and reading back the result.
+ * Starting an identity verification, and reading back the result.
  *
  * This sits outside `DataService` on purpose. That contract describes data
  * the screens read, and has a seed implementation standing in for a backend;
@@ -12,7 +12,8 @@
  *
  *   1. Ask `verification-start` for a hosted Persona URL. The function reads
  *      the caller from the JWT, so the device cannot nominate a user.
- *   2. Open it in the in-app browser. The person takes a selfie there.
+ *   2. Open it in the in-app browser. The person photographs a government ID
+ *      and takes a selfie there, and Persona matches the two.
  *   3. Read `profiles.verified` back from the server.
  *
  * Step 3 is a read, not a return value, because the verdict never travels

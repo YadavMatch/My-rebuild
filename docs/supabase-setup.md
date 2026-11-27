@@ -176,7 +176,7 @@ Both run in CI.
 
 ---
 
-## The selfie check
+## The identity check
 
 Separate from the steps above, and only needed when you want verification
 working. The reasoning behind the provider choice is in
@@ -208,9 +208,16 @@ npx supabase secrets set PERSONA_API_KEY=... PERSONA_TEMPLATE_ID=itmpl_... PERSO
 ```
 
 - `PERSONA_API_KEY` — a server-side key from the Persona dashboard.
-- `PERSONA_TEMPLATE_ID` — the inquiry template, which must contain a **selfie
-  verification and no government ID step**. A template with an ID step turns
-  the liveness check into document KYC, which is not what the app promises.
+- `PERSONA_TEMPLATE_ID` — the inquiry template, which must contain a
+  **government ID step and a selfie verification**, so the face on the
+  document is matched against a live face. Two things to get right in it:
+  the template must be in the **same Persona environment as the API key**
+  (a sandbox key cannot see a production template, which fails as a rejected
+  inquiry and a 502 from `verification-start`), and its accepted documents
+  must cover what your users actually hold. Passport, driving licence and
+  voter ID are ordinary choices; **leave Aadhaar out** unless you have taken
+  advice, because it carries its own legal constraints on collection and
+  storage in India.
 - `PERSONA_WEBHOOK_SECRET` — the signing secret for the webhook. The handler
   rejects every request whose signature does not match, and `verify_jwt` is
   off for that function, so this secret is the only thing protecting it.
@@ -239,8 +246,13 @@ the policy is a second line of defence if a webhook is ever lost.
 
 ### 5. Check it end to end
 
-Run a sandbox verification on a real device. Two things to confirm, both
+Run a sandbox verification on a real device. Three things to confirm, all
 noted as unresolved in the decision record:
+
+- The template can **read the documents your users hold**. Persona's
+  per-country document coverage was not confirmable from outside the
+  dashboard, and the flow is useless if it cannot read an Indian passport or
+  licence.
 
 - The **camera opens** inside the in-app browser. If it does not, the
   fallback is `react-native-webview`, and only

@@ -33,9 +33,11 @@ that lets you update your own row lets you update every column of it.
 Column-level `revoke update (verified, ...)` is the only thing that closes
 that, and testing confirmed a client could hand itself the badge without it.
 
-**5. The selfie check records a result, never a photo.**
-The copy promises the photo is not stored. The schema has nowhere to put one,
-which is a stronger guarantee than a policy saying we delete it.
+**5. The identity check records a result, never a photo or a document.**
+The copy promises that neither the ID nor the selfie is kept. The schema has
+nowhere to put either — no image column, and no identity fields extracted
+from the document — which is a stronger guarantee than a policy saying we
+delete them.
 
 ---
 

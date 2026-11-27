@@ -27,8 +27,9 @@ representations rather than marketing.
 >
 > **VERIFIED, REAL PROFILES**
 > Add an actual photo or pick an avatar, write a bio, and share your
-> interests. An optional AI selfie check adds a visible Verified badge — the
-> photo itself is never stored.
+> interests. An optional ID check — a government ID plus a selfie, matched
+> against each other — adds a visible Verified badge. Neither the document
+> nor the photo is kept after the check.
 >
 > **SAFETY BUILT IN, NOT BOLTED ON**
 > - Every signup requires an explicit, timestamped 18+ confirmation
@@ -57,7 +58,7 @@ representations rather than marketing.
 | Match on mutual like | Simulated | Backend with both users' likes |
 | Real-time messages | Not built | Realtime subscriptions |
 | Photo upload / avatar choice | Not built | Storage bucket, image picker, moderation on upload |
-| AI selfie check, photo not stored | **Built, unconfigured** | A Persona account, and whether the camera opens in the in-app browser |
+| ID + selfie check, nothing kept | **Built, unconfigured** | A sandbox template whose documents cover India, and whether the camera opens in the in-app browser |
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | Client-side only | Server-side filtering on feed, matches and messages |
 | One-tap report on profile | **Done** | Moderation queue to receive it |
@@ -81,11 +82,14 @@ Sequenced so each step unblocks the next rather than by feature glamour.
 4. **Photos** — upload, storage, and moderation on upload.
 5. **Real-time messaging.**
 6. **Location and proximity sorting.**
-7. **Selfie verification** — *provider chosen and the pipeline written; see
-   [`verification-provider.md`](verification-provider.md).* Persona's Hosted
-   Flow, verify-then-discard as the copy promises: the result is recorded and
-   the selfie is deleted at the provider in the same handler. Not yet live —
-   it needs an account, and the camera has not been shown to work inside the
-   in-app browser.
+7. **Identity verification** — *provider chosen and the pipeline written;
+   see [`verification-provider.md`](verification-provider.md).* Persona's
+   Hosted Flow: a government ID plus a selfie matched against it,
+   verify-then-discard as the copy promises — the result is recorded and the
+   whole inquiry, document and selfie both, is deleted at the provider in the
+   same handler. Scope changed on 27 November from a selfie-only liveness
+   check to a document check; the record explains what that moved. Not yet
+   live — the template's Indian document coverage is unconfirmed, and the
+   camera has not been shown to work inside the in-app browser.
 8. **Premium** — the 6-a-day free cap, unlimited and priority placement for
    subscribers, inbound likes, then billing.

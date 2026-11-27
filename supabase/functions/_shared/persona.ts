@@ -90,7 +90,7 @@ export async function createInquiry(opts: {
 
 /**
  * Redacts an inquiry: permanently deletes the PII Persona holds for it,
- * selfie included. Cannot be undone, which is the point.
+ * identity document and selfie included. Cannot be undone, which is the point.
  *
  * A 404 counts as success. It means the inquiry is already gone — a retried
  * webhook, or a redaction we already did — and the desired end state holds

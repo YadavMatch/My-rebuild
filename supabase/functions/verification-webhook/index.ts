@@ -1,12 +1,13 @@
 /**
- * Receives Persona's verdict on a selfie verification.
+ * Receives Persona's verdict on an identity verification.
  *
  * This is the only thing in the system that may award a Verified badge.
  * `0001_initial_schema.sql` revokes writes on `verification_attempts` from
  * `authenticated` and revokes `update` on `profiles.verified`, so the service
  * role reached through `ctx.supabaseAdmin` is the sole writer.
  *
- * Order matters: record the result, then redact the selfie at Persona. The
+ * Order matters: record the result, then redact the inquiry at Persona — the
+ * identity document and the selfie both. The
  * other order risks deleting the evidence and then failing to record it,
  * which would cost the user their verification and leave nothing to retry
  * from.
@@ -139,7 +140,7 @@ export default {
       // It does not. The app tells people their photo is not stored, and a
       // failed redaction means it still is — so this fails loudly and lets
       // Persona retry, at the cost of a duplicate attempt row per retry.
-      console.error(`Could not redact ${inquiryId} — the selfie is still at Persona`, cause);
+      console.error(`Could not redact ${inquiryId} — the document and selfie are still at Persona`, cause);
       return new Response('Could not redact the inquiry', { status: 500 });
     }
 

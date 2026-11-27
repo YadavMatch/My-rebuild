@@ -112,7 +112,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * The only way into the selfie check.
+ * The only way into the identity check.
  *
  * Reads `profiles.verified` from the server rather than the seed profile
  * above: the badge is awarded by the webhook, and the service role is the
@@ -128,7 +128,7 @@ function VerificationSection() {
       <Section title="VERIFICATION">
         <View style={[styles.verifyCard, { backgroundColor: theme.verifiedPale }]}>
           <ThemedText style={[styles.verifyText, { color: theme.verified }]}>
-            Your selfie check passed. The photo was not kept.
+            Your ID check passed. Neither your ID nor your photo was kept.
           </ThemedText>
         </View>
       </Section>
@@ -143,7 +143,7 @@ function VerificationSection() {
             ? 'Verification needs the backend configured and you signed in.'
             : state === 'pending'
               ? 'Check submitted. The badge appears once the result comes through.'
-              : 'A quick selfie check adds a Verified badge. The photo is checked and then deleted — it never reaches our database.'}
+              : 'A one-time ID check adds a Verified badge: photograph a government ID, then take a selfie so the two can be matched. Both are deleted once the check finishes, and neither ever reaches our database.'}
         </ThemedText>
       </View>
 
@@ -154,14 +154,14 @@ function VerificationSection() {
           }}
           disabled={busy || state === 'pending'}
           accessibilityRole="button"
-          accessibilityLabel="Start the selfie check"
+          accessibilityLabel="Start the ID check"
           accessibilityState={{ disabled: busy || state === 'pending' }}
           style={[
             styles.button,
             { backgroundColor: busy || state === 'pending' ? theme.border : theme.accent },
           ]}>
           <ThemedText type="smallBold" style={[styles.buttonLabel, { color: theme.onAccent }]}>
-            {busy ? 'Opening…' : state === 'pending' ? 'Waiting for the result' : 'Take a selfie check'}
+            {busy ? 'Opening…' : state === 'pending' ? 'Waiting for the result' : 'Start ID check'}
           </ThemedText>
         </PressableScale>
       )}
