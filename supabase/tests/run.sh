@@ -21,7 +21,10 @@ psql -h "$DIR" -p "$PORT" -U postgres -qc 'create database nm' >/dev/null
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
-create role service_role nologin;
+-- Supabase's service_role bypasses RLS; without that here, a service-role
+-- read returns nothing and reads as a broken function rather than a
+-- missing stub.
+create role service_role nologin bypassrls;
 create schema if not exists auth;
 grant usage on schema public, auth to anon, authenticated, service_role;
 -- Supabase grants EXECUTE on functions in public to anon and authenticated by
