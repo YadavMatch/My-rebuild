@@ -242,34 +242,78 @@ npx supabase functions deploy verification-start verification-webhook
 
 ### 4. Point Persona at the webhook
 
-Its URL is the deployed `verification-webhook` endpoint. Add the app's scheme,
-`myrebuild://`, to Persona's redirect allowlist only if you later decide the
-flow should redirect — the client does not rely on one, because the verdict
-reaches the server directly.
+Its URL is the deployed `verification-webhook` endpoint. Three things have to
+be right, and getting any of them wrong fails silently:
+
+- **Create it in the same Persona environment as the API key.** Webhooks do
+  not cross environments. A webhook registered in Production delivers nothing
+  for a sandbox inquiry — no error, no retry, an empty delivery log. On 27
+  November a completed sandbox inquiry produced zero delivery attempts for
+  exactly this reason, and nothing anywhere reported a problem.
+- **Subscribe it to `inquiry.approved`, `inquiry.declined` and
+  `inquiry.failed`.** Not `inquiry.completed`: the handler ignores that one
+  deliberately, because completing the steps is not the same as passing, so a
+  webhook subscribed only to `completed` gets a 204 and never sets a badge.
+- **Set `PERSONA_WEBHOOK_SECRET` to that webhook's secret**, not another
+  environment's. A mismatch shows up as HTTP 401 in Persona's delivery log;
+  an unset secret shows up as 503 `Not configured`. Those two responses tell
+  the two faults apart without reading function logs.
+
+Add the app's scheme, `myrebuild://`, to Persona's redirect allowlist only if
+you later decide the flow should redirect — the client does not rely on one,
+because the verdict reaches the server directly.
+
+### 5. Give Persona something that issues verdicts
+
+**Without this step the badge never appears, and nothing reports an error.**
+A completed inquiry is not an approved one: it sits at **Needs Review** until
+a post-inquiry Workflow or a human decides it. The webhook handler only acts
+on a verdict, so an account with no decisioning logic produces a flow that
+runs perfectly and changes nothing.
+
+Build it under Automation → All Workflows, add an **Inquiry → Approve
+Inquiry** action, then Save **and Publish** — publishing is a separate step.
+Write the flagging rules first and auto-approve in the `else` branch rather
+than approving everything that completes.
+
+Check the account's plan first. Persona lists the Approve Inquiry step as
+**not available on the Startup Program**. On that plan every signup needs
+manual approval in the dashboard, which is not something this feature can
+launch on. See open item 5 in
+[`verification-provider.md`](verification-provider.md).
 
 While you are in the dashboard, ask Persona support to set up a retention
 policy. The handler already deletes each inquiry after recording the result;
 the policy is a second line of defence if a webhook is ever lost.
 
-### 5. Check it end to end
+### 6. Check it end to end
 
 Run a sandbox verification on a real device. Three things to confirm, all
 noted as unresolved in the decision record:
 
-- The template can **read the documents your users hold**. Persona's
-  per-country document coverage was not confirmable from outside the
-  dashboard, and the flow is useless if it cannot read an Indian passport or
-  licence.
+- ~~The template can **read the documents your users hold**.~~ *Confirmed
+  on 27 November by driving the flow.* Selecting India offers Driver
+  License, National ID, PAN Card, Passport and Voter ID. No Aadhaar; see the
+  decision record.
 
 - The **camera opens** in the browser the check launches in. The flow opens
   in the system browser (Safari or Chrome) rather than an in-app one, which
   is a browser Persona supports outright, so this should be a formality —
   but it has not been run on a device yet. Note their two requirements:
   cameras below 640×480 are unsupported, and file upload is disabled by
-  default on mobile, under Configure → General → Image capture methods. That
-  default is still in force on this template, confirmed by driving the flow:
-  the document step offers a QR code and an email handoff and no file input
-  at all, so there is no way to finish the check anywhere but on a phone.
+  default on mobile, under Configure → General → Image capture methods, and
+  the toggles are set **separately for desktop web, mobile web and native
+  mobile apps**. Only *mobile web* governs this app, which opens the Hosted
+  Flow in Safari or Chrome; *native mobile apps* applies to Persona's Mobile
+  SDK, which this app does not use.
+
+  Driving the flow from a headless browser shows no file input and a QR-code
+  handoff, but that observation does not settle the mobile-web setting:
+  Persona appears to classify a headless browser as desktop web whatever user
+  agent it sends, since it offers "Continue on another device" even to an
+  iPhone user agent with a working camera, and renders no `<video>` element.
+  Whether upload is available on mobile web can only be seen on a real
+  phone.
 - The webhook payload carries a **`reference-id`**. The user id is sent in
   `meta.auto-create-account-reference-id` and nowhere else. Sending it in
   both places as well was tried and is rejected outright — Persona answers
@@ -278,5 +322,8 @@ noted as unresolved in the decision record:
   option. Verified against the sandbox API: with only the non-deprecated
   field sent, the created inquiry still comes back with
   `data.attributes.reference-id` set to that value, which is what the webhook
-  maps on. Still unconfirmed on an actual webhook delivery, because no
-  verification has been completed yet.
+  maps on. Still unconfirmed on an actual webhook delivery: a sandbox
+  verification was completed on 27 November, but it parked at **Needs
+  Review** and the only webhook was registered in another environment, so
+  nothing was ever delivered. Steps 4 and 5 above are what that run
+  uncovered.
