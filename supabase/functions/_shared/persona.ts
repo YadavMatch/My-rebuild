@@ -26,6 +26,21 @@ function headers(apiKey: string): HeadersInit {
   };
 }
 
+/**
+ * Carries Persona's HTTP status so the caller can report it without having to
+ * read function logs. The status alone separates the causes that matter: 401
+ * is the key, 400 is our request, 404 is a template the key cannot see.
+ */
+export class PersonaApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, body: string) {
+    super(`Persona rejected the request: ${status} ${body}`);
+    this.name = 'PersonaApiError';
+    this.status = status;
+  }
+}
+
 export type CreatedInquiry = {
   inquiryId: string;
   /** The hosted-flow URL to open on the device. Single-use. */
@@ -72,9 +87,7 @@ export async function createInquiry(opts: {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Persona rejected the inquiry: ${response.status} ${await response.text()}`,
-    );
+    throw new PersonaApiError(response.status, await response.text());
   }
 
   const body = await response.json();
