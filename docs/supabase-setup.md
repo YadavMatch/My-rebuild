@@ -219,6 +219,43 @@ Two consequences worth knowing, because neither is obvious from this branch:
   RLS harness, it lives on that same branch, and anything that tells you to run
   it will fail here until the branch is merged.
 
+#### Profiles that predate 0010
+
+`0010_discoverable_when_ready.sql` stops *new* signups appearing in the deck
+before onboarding, and clamps any profile that asks for discoverability it has
+not earned. It cannot reach rows that already exist: a column default applies
+to new rows only, and the trigger fires on write, so a row nobody updates stays
+exactly as it was.
+
+On 27 November the live project held **78** such rows — profiles named `New
+member`, `deleted_at is null`, `is_discoverable = true`, each with the
+placeholder `age = 18` the signup trigger writes. They were invisible only
+because the app was still reading seed data.
+
+Count them first, which is read-only:
+
+```sql
+select count(*) as still_visible
+from profiles
+where is_discoverable and deleted_at is null
+  and (name is null or btrim(name) = '' or name = 'New member');
+```
+
+Then hide them. This deletes nobody — it takes them out of every feed and
+leaves the accounts intact, which matters because some of them may be real
+people who abandoned onboarding and could come back and finish it:
+
+```sql
+update profiles set is_discoverable = false
+where is_discoverable and deleted_at is null
+  and (name is null or btrim(name) = '' or name = 'New member');
+```
+
+Check 24 in `verify_on_supabase.sql` reads PASS once that returns nothing to
+do. Whether to delete the accounts outright is a separate decision, and
+`delete_my_profile()` is the owner's route rather than yours — see
+[#13](https://github.com/YadavMatch/My-rebuild/issues/13).
+
 Then paste `supabase/tests/verify_on_supabase.sql` again and confirm rows
 **17** and **18** read PASS. They are specifically the 0008 checks, so they
 fail on a project that has only had 0001 applied.

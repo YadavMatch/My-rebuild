@@ -270,3 +270,59 @@ insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000002');
 select record_verification('ffff2222-0000-0000-0000-000000000002', false, 'test-provider');
 select verified as verified_must_be_false from profiles
   where id = 'ffff2222-0000-0000-0000-000000000002';
+
+\echo ''
+\echo '=== a profile is not discoverable until it is ready (0010) ==='
+
+insert into auth.users (id) values ('eeee0000-0000-0000-0000-00000000000a');
+
+\echo '-- a fresh signup is invisible, with the name the trigger invented'
+select
+  (select name from profiles where id = 'eeee0000-0000-0000-0000-00000000000a')
+    as name_must_be_new_member,
+  (select is_discoverable from profiles where id = 'eeee0000-0000-0000-0000-00000000000a')
+    as fresh_discoverable_must_be_false;
+
+\echo '-- asking to be discoverable with the placeholder name does not work'
+set role authenticated;
+set test.uid = 'eeee0000-0000-0000-0000-00000000000a';
+update profiles set is_discoverable = true
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+reset role;
+select is_discoverable as placeholder_discoverable_must_be_false from profiles
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+
+\echo '-- nor with a real name but no recorded date of birth'
+set role authenticated;
+set test.uid = 'eeee0000-0000-0000-0000-00000000000a';
+update profiles set name = 'Asha', is_discoverable = true
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+reset role;
+select is_discoverable as no_dob_discoverable_must_be_false from profiles
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+
+\echo '-- with both, it works'
+insert into profiles_private (id, date_of_birth, age_confirmed_at)
+  values ('eeee0000-0000-0000-0000-00000000000a', '1996-04-01', now());
+set role authenticated;
+set test.uid = 'eeee0000-0000-0000-0000-00000000000a';
+update profiles set is_discoverable = true
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+reset role;
+select is_discoverable as ready_discoverable_must_be_true from profiles
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+
+\echo '-- hiding is always allowed'
+set role authenticated;
+set test.uid = 'eeee0000-0000-0000-0000-00000000000a';
+update profiles set is_discoverable = false
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+reset role;
+select is_discoverable as hidden_must_be_false from profiles
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+
+\echo '-- and a deleted profile cannot be discoverable even when complete'
+update profiles set is_discoverable = true, deleted_at = now()
+  where id = 'eeee0000-0000-0000-0000-00000000000a';
+select is_discoverable as deleted_discoverable_must_be_false from profiles
+  where id = 'eeee0000-0000-0000-0000-00000000000a';

@@ -80,6 +80,36 @@ with checks as (
       where schemaname = 'public' and tablename = 'verification_attempts'
         and indexname = 'verification_attempts_provider_inquiry_key'
     )
+
+  -- 19 to 21 belong to 0009 and arrive with it; the gap is deliberate so two
+  -- branches adding checks do not fight over the same numbers.
+
+  -- 0010. The default stops new signups appearing; the trigger is what stops
+  -- a client asking for discoverability it has not earned.
+  union all select 22, '0010: is_discoverable defaults to false',
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles'
+        and column_name = 'is_discoverable' and column_default = 'false'
+    )
+
+  union all select 23, '0010: the clamp trigger is on profiles',
+    exists (
+      select 1 from pg_trigger
+      where tgrelid = 'public.profiles'::regclass
+        and tgname = 'profiles_clamp_discoverable'
+        and not tgisinternal
+    )
+
+  -- Not a schema check but a data one, and the reason 0010 is only half the
+  -- fix: a default cannot reach rows that already exist. On 27 November this
+  -- was 78 rows. See "Profiles that predate 0010" in supabase-setup.md.
+  union all select 24, '0010: no placeholder profile is still discoverable',
+    not exists (
+      select 1 from profiles
+      where is_discoverable and deleted_at is null
+        and (name is null or btrim(name) = '' or name = 'New member')
+    )
 )
 
 select n as "#",

@@ -143,6 +143,12 @@ export async function updateMyProfile(edit: ProfileEdit): Promise<void> {
       interests: edit.interests,
       emoji: edit.emoji,
       last_active_at: new Date().toISOString(),
+      // Saving a profile is the moment it is ready to be seen. Migration 0010
+      // defaults `is_discoverable` to false so a half-finished signup stays
+      // out of the deck, and clamps this back to false if the profile still
+      // has the placeholder name or no recorded date of birth — so this asks
+      // to be discoverable and the database decides whether that holds.
+      is_discoverable: true,
     })
     .eq('id', me);
   if (error) {
