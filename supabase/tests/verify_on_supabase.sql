@@ -81,6 +81,7 @@ with checks as (
         and indexname = 'verification_attempts_provider_inquiry_key'
     )
 
+
   -- 0009. Both halves matter: the function has to exist for an owner to be
   -- able to erase itself, and the column grant has to be gone or the schema
   -- still advertises a write the policy refuses.
@@ -97,6 +98,33 @@ with checks as (
 
   union all select 21, '0009: authenticated can no longer write deleted_at',
     not has_column_privilege('authenticated', 'public.profiles', 'deleted_at', 'update')
+  -- 0010. The default stops new signups appearing; the trigger is what stops
+  -- a client asking for discoverability it has not earned.
+  union all select 22, '0010: is_discoverable defaults to false',
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles'
+        and column_name = 'is_discoverable' and column_default = 'false'
+    )
+
+  union all select 23, '0010: the clamp trigger is on profiles',
+    exists (
+      select 1 from pg_trigger
+      where tgrelid = 'public.profiles'::regclass
+        and tgname = 'profiles_clamp_discoverable'
+        and not tgisinternal
+    )
+
+  -- Not a schema check but a data one, and the reason 0010 is only half the
+  -- fix: a default cannot reach rows that already exist. On 27 November this
+  -- was 78 rows. See "Profiles that predate 0010" in supabase-setup.md.
+  union all select 24, '0010: no placeholder profile is still discoverable',
+    not exists (
+      select 1 from profiles
+      where is_discoverable and deleted_at is null
+        and (name is null or btrim(name) = '' or name = 'New member')
+    )
+
 )
 
 select n as "#",
