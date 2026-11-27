@@ -189,12 +189,34 @@ The first migration is `0001_initial_schema.sql`. Anything numbered above it
 applies the same way — paste it into the SQL editor, or `npx supabase db
 push`. Each is wrapped in a transaction and safe to run twice.
 
-`0002_verification_inquiry_id.sql` is what makes a retried webhook harmless:
+`0008_verification_inquiry_id.sql` is what makes a retried webhook harmless:
 without it, each of Persona's retries records another attempt for the same
 check.
 
+**Why this branch jumps from 0001 to 0008.** Migrations 0002 to 0007 are not
+missing: they live on `claude/stoic-cerf-j3hy5o`, which has never been merged,
+and they move geo into `profiles_private`, add profile photos, message push
+and the premium grant functions. They were applied to the live project before
+0008 was, so numbering the verification migration 0002 would both claim it ran
+first and collide with that branch's own `0002_hide_geo.sql`. The range is
+reserved on purpose.
+
+Two consequences worth knowing, because neither is obvious from this branch:
+
+- **These migrations do not reproduce the live database.** `0001` creates
+  `profiles.geo` with a GIST index and `discover_feed` reads it; production has
+  no such column, because `0003_move_geo_private.sql` dropped it and moved geo
+  to `profiles_private`. Confirmed on 27 November against the live project:
+  selecting `profiles.geo` returns `42703 column does not exist`, while
+  `profiles_private.geo` reads fine. So a fresh database built from this branch
+  alone is **not** a copy of production, and `supabase db reset` against this
+  branch would not give you one.
+- **`supabase/tests/verify_rls.mjs` is not on this branch either.** It is the
+  RLS harness, it lives on that same branch, and anything that tells you to run
+  it will fail here until the branch is merged.
+
 Then paste `supabase/tests/verify_on_supabase.sql` again and confirm rows
-**17** and **18** read PASS. They are specifically the 0002 checks, so they
+**17** and **18** read PASS. They are specifically the 0008 checks, so they
 fail on a project that has only had 0001 applied.
 
 ### 2. Set the function secrets

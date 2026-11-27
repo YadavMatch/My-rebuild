@@ -66,15 +66,15 @@ with checks as (
   union all select 16, 'Prompt catalogue seeded',
     (select count(*) from prompts) >= 10
 
-  -- 0002. Checks 17 and 18 fail on a project that has only had 0001 applied.
-  union all select 17, '0002: verification_attempts.inquiry_id exists, nullable',
+  -- 0008. Checks 17 and 18 fail on a project that has only had 0001 applied.
+  union all select 17, '0008: verification_attempts.inquiry_id exists, nullable',
     exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'verification_attempts'
         and column_name = 'inquiry_id' and is_nullable = 'YES'
     )
 
-  union all select 18, '0002: one attempt per (provider, inquiry_id)',
+  union all select 18, '0008: one attempt per (provider, inquiry_id)',
     exists (
       select 1 from pg_indexes
       where schemaname = 'public' and tablename = 'verification_attempts'

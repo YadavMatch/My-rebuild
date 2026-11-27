@@ -310,7 +310,7 @@ sign-off before launch, and so does the DPDP position in open question 3.
    template. Enough coverage to test and to launch with.
 2. **Later, if coverage proves too thin:** OVSE or DigiLocker as a *second*
    provider. The schema already allows it — `verification_attempts.provider`
-   is free text precisely so a second provider can coexist, and 0002's unique
+   is free text precisely so a second provider can coexist, and 0008's unique
    index is scoped by provider rather than by inquiry id alone.
 
 Aadhaar is the most widely held ID in India, so this is a real coverage
@@ -522,7 +522,7 @@ Step 4 belongs in the webhook handler and not in a nightly cleanup job: a
 cleanup job that fails quietly leaves selfies on a third party's servers
 while the app says otherwise. It returns 500 when redaction fails, so
 Persona retries rather than the failure passing unnoticed — at the cost of a
-duplicate delivery, which migration 0002 makes harmless.
+duplicate delivery, which migration 0008 makes harmless.
 
 The Persona API key is server-only. It belongs in Supabase Edge Function
 secrets, never in an `EXPO_PUBLIC_*` variable. The three secrets the
