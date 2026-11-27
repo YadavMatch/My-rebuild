@@ -61,9 +61,9 @@ representations rather than marketing.
 | ID + selfie check, nothing kept | **Starting works; finishing blocked** | A decisioning step in Persona. A completed inquiry parks at Needs Review and no verdict event ever fires, so the badge cannot set itself — and the step that would automate it is not on Persona's Startup plan. See open items 4 and 5 of the [decision record](verification-provider.md); "nothing kept" is separately contradicted by Persona's own consent screen |
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | **Done** | — enforced server-side at nine call sites: the feed, the matches and messages policies, and the swipes trigger. `verify_rls.mjs` also proves a push is suppressed after a block |
-| One-tap report on profile | **Done** | Moderation queue to receive it |
-| One-tap report on conversation | **Done** | Moderation queue to receive it |
-| Swipe and message rate limits | **Likes capped; messages not** | A message rate limit. Likes are capped by a database trigger, so the client cannot talk its way past it; nothing limits messages |
+| One-tap report on profile | **Done** | A person. `0015` gives the queue service-role functions — list oldest-first, claim, resolve — so a report is now reachable and actionable. Nobody is working it, there is no moderator UI and no notification, and `actioned` suspends nobody |
+| One-tap report on conversation | **Done** | As above: the queue exists, the human does not |
+| Swipe and message rate limits | **Done** | — both capped by database triggers, so a client cannot talk its way past either. Likes: 6 a day on the free tier. Messages: 20 a minute across all matches, and 60 an hour to any one match (`0014`) |
 | Free tier: 6 likes a day | **Done** | — enforced by the `swipes_rate_limit` trigger and verified against the live project: the 7th like is refused with `daily_like_limit_reached` |
 | Premium: unlimited likes | **Done in the database** | Billing. The cap already reads `entitlements` and lifts for a live premium row; there is no way to buy one |
 | Premium: priority likes | **Done** | Real users. `discover_feed` already ranks a premium liker above a non-premium liker above everyone else |
@@ -81,9 +81,12 @@ Sequenced so each step unblocks the next rather than by feature glamour.
    the real backend as soon as there is a session.
 3. **Server-side blocking and the moderation queue** — safety claims become
    true. *Blocking is done*, enforced at nine server-side call sites rather
-   than in the client. **The moderation queue is not built**, so reports
-   still reach nobody — which is the remaining half of the safety claim and
-   the more important half.
+   than in the client. *The queue is built* (`0015`): reports are listed
+   oldest-first, claimable and resolvable by a server. **What is missing is a
+   person.** No moderator UI, no notification when a report arrives, and
+   resolving one as `actioned` records a decision without suspending
+   anybody. "Real moderation" becomes a true claim when someone works the
+   queue, not when the schema allows it.
 4. **Photos** — upload and storage *done*; **moderation on upload is not**.
    Nothing inspects an image before it is public.
 5. **Real-time messaging** — *written*, and broken on the live project: the
