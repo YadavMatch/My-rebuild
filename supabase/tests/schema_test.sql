@@ -556,3 +556,74 @@ select status as resolved_must_be_actioned from resolve_report(
 select count(*) as queue_after_resolve_must_be_1 from moderation_queue(10);
 select * from resolve_report((select id from reports order by created_at limit 1), 'open');
 reset role;
+
+\echo ''
+\echo '=== a date of birth means somebody declared one (0016) ==='
+
+\echo '-- the sentinel 0003 and saveLocation used to write is now rejected'
+insert into auth.users (id) values ('cccc3333-0000-0000-0000-000000000001');
+insert into profiles_private (id, date_of_birth, age_confirmed_at)
+  values ('cccc3333-0000-0000-0000-000000000001', '1900-01-01', now());
+
+\echo '-- and so is anything earlier'
+insert into profiles_private (id, date_of_birth, age_confirmed_at)
+  values ('cccc3333-0000-0000-0000-000000000001', '1899-12-31', now());
+
+\echo '-- a location-only row is allowed, with no date of birth at all'
+insert into profiles_private (id, age_confirmed_at) values
+  ('cccc3333-0000-0000-0000-000000000001', now());
+select date_of_birth is null as location_only_row_dob_must_be_null
+  from profiles_private where id = 'cccc3333-0000-0000-0000-000000000001';
+
+\echo '-- but it cannot be discoverable: nobody declared an age (0010 + 0016)'
+update profiles set name = 'Undeclared', is_discoverable = true
+  where id = 'cccc3333-0000-0000-0000-000000000001';
+select is_discoverable as undeclared_discoverable_must_be_false
+  from profiles where id = 'cccc3333-0000-0000-0000-000000000001';
+
+\echo '-- once the age gate writes a real date, it can be'
+update profiles_private set date_of_birth = '1996-04-01'
+  where id = 'cccc3333-0000-0000-0000-000000000001';
+update profiles set is_discoverable = true
+  where id = 'cccc3333-0000-0000-0000-000000000001';
+select is_discoverable as declared_discoverable_must_be_true
+  from profiles where id = 'cccc3333-0000-0000-0000-000000000001';
+
+\echo '-- a real date is still accepted, and a plausible old one too'
+insert into auth.users (id) values ('cccc3333-0000-0000-0000-000000000002');
+insert into profiles_private (id, date_of_birth, age_confirmed_at)
+  values ('cccc3333-0000-0000-0000-000000000002', '1920-06-15', now());
+select date_of_birth as plausible_old_date_must_be_1920_06_15
+  from profiles_private where id = 'cccc3333-0000-0000-0000-000000000002';
+
+\echo '-- 0016'"'"'s backfill, against a row that predates it'
+-- Reproduce the pre-0016 state: drop the constraint, write the sentinel, and
+-- let 0010 wave the profile through the way it used to. This is the bug as it
+-- exists in the live database, since 0003 wrote the sentinel for every row it
+-- carried over.
+alter table profiles_private drop constraint profiles_private_date_of_birth_plausible;
+insert into auth.users (id) values ('cccc3333-0000-0000-0000-000000000003');
+insert into profiles_private (id, date_of_birth, age_confirmed_at)
+  values ('cccc3333-0000-0000-0000-000000000003', '1900-01-01', now());
+update profiles set name = 'Legacy', is_discoverable = true
+  where id = 'cccc3333-0000-0000-0000-000000000003';
+select is_discoverable as bug_reproduced_must_be_true
+  from profiles where id = 'cccc3333-0000-0000-0000-000000000003';
+
+-- Now the two corrective statements from 0016, verbatim.
+update profiles_private set date_of_birth = null
+ where date_of_birth = date '1900-01-01';
+update profiles set is_discoverable = false
+ where is_discoverable
+   and exists (select 1 from profiles_private pr
+                where pr.id = profiles.id and pr.date_of_birth is null);
+
+select
+  (select date_of_birth is null from profiles_private
+    where id = 'cccc3333-0000-0000-0000-000000000003') as backfill_nulled_dob_must_be_true,
+  (select is_discoverable from profiles
+    where id = 'cccc3333-0000-0000-0000-000000000003') as backfill_hid_profile_must_be_false;
+
+alter table profiles_private
+  add constraint profiles_private_date_of_birth_plausible
+  check (date_of_birth is null or date_of_birth > date '1900-01-01');

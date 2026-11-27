@@ -70,10 +70,17 @@ export async function recordAgeConfirmation(
 /**
  * Stores the signed-in person's coordinates.
  *
- * profiles_private is upserted rather than updated because the row may not
- * exist yet, and date_of_birth is not null — so a location-only insert has to
- * carry something. It uses the age the account already claims rather than
- * inventing a date.
+ * profiles_private is inserted when the row does not exist yet. It no longer
+ * carries a date of birth: it used to write 1900-01-01, because the column was
+ * `not null` and a location-only insert had to put something there. 0010 then
+ * started reading `date_of_birth is not null` as "this person declared their
+ * age", so that placeholder quietly satisfied the gate keeping undeclared
+ * profiles out of the deck — and the profile appeared claiming to be 18.
+ *
+ * 0016 made the column nullable and added a check constraint that rejects the
+ * sentinel, so there is nothing to invent and nowhere to hide it. A location
+ * can be saved before the age gate has run; the profile simply stays out of
+ * the deck until a real declaration arrives.
  */
 export async function saveLocation(latitude: number, longitude: number): Promise<void> {
   const me = requireUser();
@@ -90,7 +97,7 @@ export async function saveLocation(latitude: number, longitude: number): Promise
     ? await client.from('profiles_private').update({ geo: point }).eq('id', me)
     : await client.from('profiles_private').insert({
         id: me,
-        date_of_birth: '1900-01-01',
+        // No date of birth. Only the age gate may write one — see 0016.
         age_confirmed_at: new Date().toISOString(),
         geo: point,
       });

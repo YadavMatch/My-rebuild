@@ -125,6 +125,29 @@ with checks as (
         and (name is null or btrim(name) = '' or name = 'New member')
     )
 
+  -- 0016. The third is the one that matters: a profile in the deck on a date
+  -- of birth nobody supplied is a fabricated 18+ declaration.
+  union all select 25, '0016: date_of_birth is nullable',
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles_private'
+        and column_name = 'date_of_birth' and is_nullable = 'YES'
+    )
+
+  union all select 26, '0016: the sentinel cannot be written',
+    exists (
+      select 1 from pg_constraint
+      where conname = 'profiles_private_date_of_birth_plausible'
+    )
+
+  union all select 27, '0016: nobody is discoverable without a declared age',
+    not exists (
+      select 1 from profiles p
+      join profiles_private pr on pr.id = p.id
+      where p.is_discoverable and p.deleted_at is null
+        and pr.date_of_birth is null
+    )
+
 )
 
 select n as "#",
