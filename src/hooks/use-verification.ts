@@ -1,14 +1,20 @@
 /**
  * Verification state for a screen.
  *
- * Owns the one piece of timing that matters: the verdict arrives at the
- * server by webhook, not through the device, so when the browser closes the
- * answer usually is not there yet. This polls for a short while and then
- * stops claiming anything — `pending` is an honest resting state, not a
- * failure.
+ * Owns the one piece of timing that matters. The check happens in the system
+ * browser, in another app, and its verdict reaches the server by webhook
+ * rather than through the device — so there is no moment when this code can
+ * ask "did it pass?" and expect an answer. What it can do is notice when the
+ * person comes back and look then.
+ *
+ * Hence the `AppState` listener: returning to the foreground while a check is
+ * outstanding starts a short poll. `pending` is an honest resting state, not
+ * a failure — the badge may arrive seconds after the person returns, or after
+ * they have closed the app entirely, in which case the next launch reads it.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { fetchVerifiedFlag, startVerification } from '@/services/verification';
 import { useAuth } from '@/store/auth';
@@ -18,7 +24,7 @@ export type VerificationState =
   | 'unavailable'
   /** Known not to be verified. The flow can be started. */
   | 'unverified'
-  /** The browser is open, or the result has not arrived yet. */
+  /** Handed off to the browser, or the result has not arrived yet. */
   | 'pending'
   | 'verified';
 
@@ -41,9 +47,9 @@ export function useVerification() {
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
-  // Guards the polling loop in `start`, which can outlive the screen. The
-  // effect below uses its own flag instead, so that nothing in the effect
-  // body reaches a setter directly.
+  // Guards async writes that can outlive the screen. The effect below uses
+  // its own flag instead, so nothing in an effect body reaches a setter
+  // directly.
   const live = useRef(true);
   useEffect(() => {
     live.current = true;
@@ -86,6 +92,49 @@ export function useVerification() {
     return verified;
   }, []);
 
+  /** Looks a few times, then settles. The webhook may still be in flight. */
+  const poll = useCallback(async () => {
+    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+      const verified = await refresh();
+      if (!live.current || verified) {
+        return;
+      }
+
+      setState('pending');
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      if (!live.current) {
+        return;
+      }
+    }
+
+    if (live.current) {
+      setMessage('Still waiting on the result. The badge appears here once it arrives.');
+    }
+  }, [refresh]);
+
+  // Read through refs so the listener below can be registered once, rather
+  // than torn down and rebuilt on every state change.
+  const stateRef = useRef(state);
+  const pollRef = useRef(poll);
+  useEffect(() => {
+    stateRef.current = state;
+    pollRef.current = poll;
+  }, [state, poll]);
+
+  // The person finishes the check in another app, so coming back is the only
+  // cue we get that it is worth looking again.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && stateRef.current === 'pending') {
+        pollRef.current().catch(() => {});
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   const start = useCallback(async () => {
     setBusy(true);
     setMessage(undefined);
@@ -101,24 +150,10 @@ export function useVerification() {
         return;
       }
 
-      // The browser has closed. The webhook may still be in flight, so look
-      // a few times before settling on `pending`.
+      // The browser has the URL and the person is on their way out of the
+      // app. Nothing more to do until they return.
       setState('pending');
-
-      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-        const verified = await refresh();
-        if (!live.current || verified) {
-          return;
-        }
-
-        setState('pending');
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-        if (!live.current) {
-          return;
-        }
-      }
-
-      setMessage('Check submitted. The badge appears once the result comes through.');
+      setMessage('Finish the check in your browser, then come back to this screen.');
     } catch {
       if (live.current) {
         setMessage('Something went wrong starting verification.');
@@ -128,7 +163,7 @@ export function useVerification() {
         setBusy(false);
       }
     }
-  }, [refresh]);
+  }, []);
 
   return { state, message, busy, start, refresh };
 }

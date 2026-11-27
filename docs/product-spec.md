@@ -58,7 +58,7 @@ representations rather than marketing.
 | Match on mutual like | Simulated | Backend with both users' likes |
 | Real-time messages | Not built | Realtime subscriptions |
 | Photo upload / avatar choice | Not built | Storage bucket, image picker, moderation on upload |
-| ID + selfie check, nothing kept | **Built, unconfigured** | A sandbox template whose documents cover India, and whether the camera opens in the in-app browser |
+| ID + selfie check, nothing kept | **Built, unconfigured** | A sandbox template whose documents cover India, and one sandbox run on a real device |
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | Client-side only | Server-side filtering on feed, matches and messages |
 | One-tap report on profile | **Done** | Moderation queue to receive it |
@@ -89,7 +89,8 @@ Sequenced so each step unblocks the next rather than by feature glamour.
    whole inquiry, document and selfie both, is deleted at the provider in the
    same handler. Scope changed on 27 November from a selfie-only liveness
    check to a document check; the record explains what that moved. Not yet
-   live — the template's Indian document coverage is unconfirmed, and the
-   camera has not been shown to work inside the in-app browser.
+   live — the template's Indian document coverage is unconfirmed, and no
+   sandbox check has been run on a real device. The flow opens in the system
+   browser rather than an in-app one, for reasons the record explains.
 8. **Premium** — the 6-a-day free cap, unlimited and priority placement for
    subscribers, inbound likes, then billing.

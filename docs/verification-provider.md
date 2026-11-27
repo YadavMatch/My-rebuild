@@ -207,34 +207,47 @@ through once. The hosted page costs none of it.
 Three open items. The first is a blocker; the others are commitments to
 make with open eyes.
 
-**1. Can the camera open inside the in-app browser?** Unresolved. A selfie
-check needs `getUserMedia`, and the Expo SDK 58 documentation for
-`expo-web-browser` is silent on camera access. Persona's own WebView guidance
-asks for `is-webview=true` and an `NSCameraUsageDescription` entry, which
-hints the camera is not free here.
+**1. ~~Can the camera open inside the in-app browser?~~ Settled on 27
+November by not using an in-app browser.** The flow now opens in the system
+browser, via `Linking.openURL` in `src/services/verification.ts`.
 
-This was originally written up as deciding between two browser modes. It no
-longer does, and the reason is worth recording. The verdict never travels
-through the device — Persona posts it to the webhook, the only writer the
-schema permits — so the client has no redirect to capture. That removes any
-need for `openAuthSessionAsync`, whose whole purpose is capturing one, and
-with it the dependency on `ASWebAuthenticationSession`, the OAuth-hardened
-container that was the more doubtful of the two. `src/services/verification.ts`
-uses `openBrowserAsync`, which gets an ordinary `SFSafariViewController`.
+Reading Persona's own documentation closed off the two paths this section
+used to weigh between:
 
-So one question remains, with one bit of answer:
+* **In-app browsers are not endorsed.** Their supported browsers are the real
+  ones — Chrome 79+, Firefox 74+, Safari 13+, Edge 80+, Brave — and they say
+  "In-app browsers (e.g. Facebook Browser, Instagram Browser) are not
+  supported", warning that "Aspects of the Inquiry flow may be degraded or
+  not function entirely". `SFSafariViewController` is not named either way.
+  That is not a guarantee to build a camera-dependent flow on.
+* **The WebView fallback does not exist.** "We do not support using the
+  WebView integration with React Native." So `react-native-webview`, which
+  this section previously named as the fallback, was never an option.
+* **Their recommendation for React Native is the native SDK**, which needs a
+  prebuild and gives up Continuous Native Generation — the thing constraint 4
+  rejected it for.
 
-| Result | Path |
-| --- | --- |
-| the camera works in `openBrowserAsync` | nothing to change |
-| it does not | `react-native-webview` plus camera permissions in `app.json` — an install and a dev build, and only `src/services/verification.ts` changes |
+Handing the URL to Safari or Chrome itself answers all of it. It is a browser
+Persona supports, so the camera is the platform's own rather than a wrapper's;
+nothing native is added; and CNG survives. The price is that the person leaves
+the app, which Persona's Hosted Flow requires anyway — "It's acceptable for
+users to leave your site temporarily. (Required)" — and which costs this
+design nothing, because the verdict was never returning through the device.
 
-The spike that would settle it was removed from the tree without being run.
-It is preserved as `src/app/dev/camera-spike.tsx` in commit `cb8fa88` of
-[PR #9](https://github.com/YadavMatch/My-rebuild/pull/9), and comes back with
-`git checkout cb8fa88 -- src/app/dev/camera-spike.tsx`. It runs in Expo Go
-and needs a physical device, because the simulator has no camera and would
-fail regardless.
+`use-verification.ts` therefore collects the result on `AppState` becoming
+active rather than when a browser sheet closes.
+
+What is left is not a blocker but a confirmation: run one sandbox check on a
+real device and watch the camera open in Safari. The spike built for the old
+question is preserved as `src/app/dev/camera-spike.tsx` in commit `cb8fa88`
+of [PR #9](https://github.com/YadavMatch/My-rebuild/pull/9) — it probed the
+in-app browser, so it now tests something the app no longer does.
+
+Two requirements worth carrying into that run, both from Persona's docs:
+cameras below **640×480** are unsupported, and **file upload is disabled by
+default on mobile** (Configure → General → Image capture methods), which
+matters for a government-ID flow where some people will want to upload rather
+than photograph.
 
 **2. Persona's price is unknown.** `withpersona.com/pricing` returned HTTP
 403 and was never read. Treat "usage-priced" as an assumption. For a floor to
@@ -279,9 +292,9 @@ migration.
    single-use hosted URL. It runs under `auth: 'user'`, so the caller comes
    from the JWT and a device cannot nominate someone else. An
    already-verified caller is turned away, because every inquiry is billable.
-2. `src/services/verification.ts` opens that URL with `openBrowserAsync`.
-   There is no redirect and no deep link: see open question 1 for why none is
-   needed.
+2. `src/services/verification.ts` hands that URL to the system browser with
+   `Linking.openURL`. There is no redirect and no deep link: see open
+   question 1 for why none is needed, and why an in-app browser is not used.
 3. `supabase/functions/verification-webhook` verifies Persona's HMAC over the
    raw bytes, then — with the service role — upserts into
    `verification_attempts` with `provider: 'persona'` and sets
@@ -307,9 +320,11 @@ functions read are listed in
 
 ## What would reverse this
 
-- The camera cannot be made to work in any in-app browser *and* the WebView
-  fallback also fails. Then the hosted page is unusable and the native SDK
-  and its prebuild come back on the table.
+- The camera cannot be made to work in the system browser. That would be
+  surprising — it is Safari or Chrome, which Persona supports outright — but
+  it is the one thing the sandbox run still has to show. There is no WebView
+  fallback to drop to, since Persona does not support one with React Native,
+  so the native SDK and its prebuild would be the only way left.
 - On-shore processing becomes a hard requirement. Then the Indian providers
   above need evaluating and this document is obsolete.
 - Persona's pricing turns out to be enterprise-only with no self-serve tier,

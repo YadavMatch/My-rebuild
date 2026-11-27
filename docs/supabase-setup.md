@@ -254,9 +254,12 @@ noted as unresolved in the decision record:
   dashboard, and the flow is useless if it cannot read an Indian passport or
   licence.
 
-- The **camera opens** inside the in-app browser. If it does not, the
-  fallback is `react-native-webview`, and only
-  `src/services/verification.ts` changes.
+- The **camera opens** in the browser the check launches in. The flow opens
+  in the system browser (Safari or Chrome) rather than an in-app one, which
+  is a browser Persona supports outright, so this should be a formality —
+  but it has not been run on a device yet. Note their two requirements:
+  cameras below 640×480 are unsupported, and file upload is disabled by
+  default on mobile, under Configure → General → Image capture methods.
 - The webhook payload carries a **`reference-id`**. The client sends the user
   id twice, under `reference-id` and `meta.auto-create-account-reference-id`,
   because Persona's docs deprecate the first but it is the one documented to
