@@ -214,10 +214,14 @@ npx supabase secrets set PERSONA_API_KEY=... PERSONA_TEMPLATE_ID=itmpl_... PERSO
   the template must be in the **same Persona environment as the API key**
   (a sandbox key cannot see a production template, which fails as a rejected
   inquiry and a 502 from `verification-start`), and its accepted documents
-  must cover what your users actually hold. Passport, driving licence and
-  voter ID are ordinary choices; **leave Aadhaar out** unless you have taken
-  advice, because it carries its own legal constraints on collection and
-  storage in India.
+  must cover what your users actually hold. Choose **passport, driving
+  licence, voter ID and PAN** — Persona's documented Indian classes are `pan`
+  and `vid`, with driving licence and passport as generic ones, and the
+  dashboard's coverage map is the only place the real per-country list lives.
+  **Aadhaar is not on offer through Persona at all**, and the routes that do
+  support it are separate integrations with their own registration: see
+  *Indian documents, and the Aadhaar question* in
+  [`verification-provider.md`](verification-provider.md).
 - `PERSONA_WEBHOOK_SECRET` — the signing secret for the webhook. The handler
   rejects every request whose signature does not match, and `verify_jwt` is
   off for that function, so this secret is the only thing protecting it.

@@ -162,11 +162,10 @@ flow is useless if it cannot read the documents Indian users actually hold.
 Confirm in the dashboard which Indian documents the template accepts before
 relying on this.
 
-On which documents to accept: passport, driving licence and voter ID are
-ordinary choices. **Aadhaar carries its own legal constraints in India** on
-collection and storage, and should stay out of the accepted set without
-advice. Persona does expose an Aadhaar database check
-(`verification/database-aadhaar`) if that is ever wanted deliberately.
+On which documents to accept, and on Aadhaar specifically, see *Indian
+documents, and the Aadhaar question* below. The short version: Persona offers
+PAN, voter ID, passport and driving licence for India, and does not offer
+Aadhaar at all.
 
 **Deletion is an ordinary API call with no cap.**
 `DELETE /api/v1/inquiries/{inquiry-id}` "permanently deletes personally
@@ -183,6 +182,97 @@ no prebuild — constraint 4, met by not engaging with it at all. The
 `redirect-uri` parameter "supports custom schemes such as mobile intents",
 which matches `"scheme": "myrebuild"` already set in `app.json`, and Persona
 returns `inquiry-id`, `reference-id` and `status` on the way back.
+
+---
+
+## Indian documents, and the Aadhaar question
+
+Researched 27 November 2026, after the requirement changed to a document
+check. This is the section to read before configuring a template.
+
+### What Persona offers for India
+
+Its documented government-ID classes for India are `pan` ("India Permanent
+Account Number Card") and `vid` ("Voter Id"), plus the generic `dl` (driving
+licence), `pp` (passport) and `id`. Per-country support is not fully listed in
+the docs — "See the full set of Government ID Verification checks ... in your
+Dashboard" — so confirm against the dashboard's coverage map before relying on
+any of it.
+
+**Aadhaar is not among them.** "Include Aadhaar in the Persona template" is
+not an option that exists.
+
+> **Correction.** An earlier version of this document claimed Persona exposes
+> an Aadhaar database check at `verification/database-aadhaar`. That came from
+> a single sighting in a long object-type enumeration and could not be found
+> documented on a second pass — the documented database types are AAMVA,
+> ECBSV, phone carrier, SERPRO and TIN. The claim should not have been made.
+
+### If Aadhaar is wanted: the OVSE route, and it cannot go through Persona
+
+UIDAI registers Offline Verification Seeking Entities for consent-based
+offline identity verification, and its published use cases include
+**"Social/Community/Matchmaking"** — this app's category, named explicitly. A
+registered entity "may collect and store verifiable credentials shared with
+the explicit consent of the Aadhaar Number Holder."
+
+The line that decides the architecture: **"Offline verification cannot be
+performed on behalf of another entity."** Persona is another entity. So
+Aadhaar cannot ride inside the Persona flow; it is a separate integration run
+by us, as a registered OVSE.
+
+Applications go through `ovse.uidai.gov.in`. The stated technical
+requirements are an SVG logo under 10KB, a callback URL, the organisation name
+as shown in the Aadhaar app, a domain name, and a Class 2 or 3 public
+certificate with two-year validity. UIDAI gives
+`ovse.registration@uidai.net.in` for eligibility questions.
+
+### DigiLocker: plausible, and arguably better than photographing anything
+
+DigiLocker's Requester role exists for this purpose — "Use DigiLocker to
+verify identities, perform KYC, or check income proofs." Onboarding runs
+through APISetu: sign up with an authorised representative's email, take "a
+quick verification call", accept the Terms of Use or Agreement, and apply as a
+Requester "subject to applicable permissions", submitting "a valid use case
+and the required onboarding documents". Credentials (`orgId` and an API key)
+are issued after approval.
+
+Its categorical advantage: documents come **from the issuing source**, so
+document forgery stops being a threat rather than being detected. That is a
+stronger guarantee than reading a photograph of a document, however good the
+reader.
+
+### What could not be verified, and therefore is not advice
+
+The statute itself was unreadable: `indiacode.nic.in` and MeitY returned 403
+for the Aadhaar Act 2016, the 2019 Amendment Act and the DPDP Act, and the
+Aadhaar (Authentication and Offline Verification) Regulations PDF returned 503
+twice. So this document **cannot** tell you:
+
+* what the 2019 Amendment changed about private-entity use, or the current
+  status of the struck-down Section 57;
+* the penalties for collecting or storing an Aadhaar number or a copy of an
+  Aadhaar letter;
+* whether UIDAI permits a business to accept an Aadhaar card as ordinary
+  photo ID, as distinct from performing verification against UIDAI.
+
+The OVSE and DigiLocker quotes above are from official sites and are solid.
+Whether this app is approved for either is "apply and find out" — the
+matchmaking use case is encouraging, not a guarantee. Both want a lawyer's
+sign-off before launch, and so does the DPDP position in open question 3.
+
+### The practical sequence
+
+1. **Now:** passport, driving licence, voter ID and PAN in the sandbox
+   template. Enough coverage to test and to launch with.
+2. **Later, if coverage proves too thin:** OVSE or DigiLocker as a *second*
+   provider. The schema already allows it — `verification_attempts.provider`
+   is free text precisely so a second provider can coexist, and 0002's unique
+   index is scoped by provider rather than by inquiry id alone.
+
+Aadhaar is the most widely held ID in India, so this is a real coverage
+question rather than a theoretical one. It is simply not a reason to hold up
+the first working version.
 
 ---
 
@@ -340,7 +430,8 @@ functions read are listed in
 
 ## Sources
 
-All read 25 November 2026.
+Mostly read 25 November 2026; the Indian-document section was researched on
+27 November and lists its own sources at the end.
 
 - Stripe: [Identity use cases](https://docs.stripe.com/identity/use-cases) ·
   [verification checks](https://docs.stripe.com/identity/verification-checks) ·
@@ -358,3 +449,17 @@ All read 25 November 2026.
   [React Native guide](https://docs.withpersona.com/2026-09-29/react-native-sdk-v2-integration-guide) ·
   [WebView considerations](https://docs.withpersona.com/2022-09-01/hosted-flow-webview-considerations)
 - Expo: [expo-web-browser, SDK 58](https://docs.expo.dev/versions/v58.0.0/sdk/webbrowser/)
+
+Read 27 November 2026, for *Indian documents, and the Aadhaar question*:
+
+- Persona: [government ID verifications](https://docs.withpersona.com/2026-09-29/api-reference/verifications/government-id-verifications) ·
+  [database verifications](https://docs.withpersona.com/2026-09-29/api-reference/verifications/database-verifications) ·
+  [browser and device support](https://docs.withpersona.com/2026-09-29/browser-device-support) ·
+  [WebView vs native](https://docs.withpersona.com/2026-09-29/webview-vs-native-mobile-integration) ·
+  [WebView troubleshooting](https://docs.withpersona.com/2026-09-29/troubleshooting-common-issues-webview)
+- UIDAI: [offline verification seeking entities](https://uidai.gov.in/hi/ovse)
+- DigiLocker: [partner introduction](https://www.digilocker.gov.in/web/partners/introductions) ·
+  [partner FAQ](https://www.digilocker.gov.in/web/partners/partner-faq)
+- caniuse: [getUserMedia support data](https://github.com/Fyrd/caniuse/blob/main/features-json/stream.json),
+  for the note that `getUserMedia` returned no video devices in `WKWebView`
+  before iOS 14.3
