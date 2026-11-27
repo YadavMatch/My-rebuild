@@ -454,6 +454,31 @@ One decision you need to make, because the law and the product pull apart.
 `profiles.deleted_at` soft-deletes immediately: the person disappears from
 every feed, match and conversation. A purge job then removes the row for real.
 
+**Set it by calling `delete_my_profile()`, not by updating the column.** The
+obvious update is refused, and the error points somewhere misleading:
+
+```
+ERROR:  new row violates row-level security policy for table "profiles"
+```
+
+`profiles_self_write` permits the write; `profiles_readable` is what refuses
+it. Postgres will not let a client update its own row into a state its SELECT
+policy would hide, and `deleted_at is null` in that policy means setting the
+column hides the row. So the only party entitled to erase the account was the
+one party that could not.
+
+`0009_account_deletion.sql` resolves it the strict way: the policy is left
+alone, and the write happens in a `security definer` function instead. The
+function takes **no argument** — it reads `auth.uid()` and nothing else, so
+there is no parameter through which one account could delete another. The same
+migration revokes `deleted_at` from the client's update grant, since leaving it
+there advertised a write that was refused.
+
+A deleted profile stays invisible to everyone, its owner included. If you later
+want an "account scheduled for deletion" screen, that needs the SELECT policy
+relaxed to `(deleted_at is null or id = auth.uid())` — a deliberate change,
+not a side effect.
+
 The open question is **messages the other person received**. Options:
 
 1. Delete them. Cleanest for the person leaving; the other person's
