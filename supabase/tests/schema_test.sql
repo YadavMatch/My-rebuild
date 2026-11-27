@@ -270,3 +270,58 @@ insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000002');
 select record_verification('ffff2222-0000-0000-0000-000000000002', false, 'test-provider');
 select verified as verified_must_be_false from profiles
   where id = 'ffff2222-0000-0000-0000-000000000002';
+
+\echo ''
+\echo '=== deleting your own account (0009) ==='
+
+-- Two accounts, so "A deleted itself" can be told apart from "A deleted
+-- everyone".
+insert into auth.users (id) values ('dddd0000-0000-0000-0000-00000000000a');
+insert into auth.users (id) values ('dddd0000-0000-0000-0000-00000000000b');
+
+\echo '-- the direct write is now refused (expect: permission denied for column)'
+set role authenticated;
+set test.uid = 'dddd0000-0000-0000-0000-00000000000a';
+update profiles set deleted_at = now() where id = 'dddd0000-0000-0000-0000-00000000000a';
+reset role;
+select count(*) as direct_write_must_be_0 from profiles
+  where id = 'dddd0000-0000-0000-0000-00000000000a' and deleted_at is not null;
+
+\echo '-- but the function works, for the caller only (expect: succeeds)'
+set role authenticated;
+set test.uid = 'dddd0000-0000-0000-0000-00000000000a';
+select delete_my_profile();
+reset role;
+select
+  (select deleted_at is not null from profiles where id = 'dddd0000-0000-0000-0000-00000000000a')
+    as a_deleted_must_be_true,
+  (select is_discoverable from profiles where id = 'dddd0000-0000-0000-0000-00000000000a')
+    as a_discoverable_must_be_false,
+  (select deleted_at is null from profiles where id = 'dddd0000-0000-0000-0000-00000000000b')
+    as b_untouched_must_be_true;
+
+\echo '-- calling it twice does not move the timestamp (expect: unchanged)'
+-- Read the stamp outside RLS: profiles_readable hides the row now that it is
+-- deleted, which is the whole reason this function has to exist.
+select deleted_at as first_stamp from profiles
+  where id = 'dddd0000-0000-0000-0000-00000000000a' \gset
+set role authenticated;
+set test.uid = 'dddd0000-0000-0000-0000-00000000000a';
+select delete_my_profile();
+reset role;
+select (deleted_at = :'first_stamp'::timestamptz) as stamp_unchanged_must_be_true
+  from profiles where id = 'dddd0000-0000-0000-0000-00000000000a';
+
+\echo '-- anon cannot even call it (expect: permission denied for function)'
+-- Stronger than the in-function auth.uid() guard, which is kept as a second
+-- line for any role that has execute but no identity.
+set role anon;
+select delete_my_profile();
+reset role;
+
+\echo '-- and a deleted profile is gone from the deck'
+set role authenticated;
+set test.uid = 'dddd0000-0000-0000-0000-00000000000b';
+select count(*) as deleted_in_feed_must_be_0 from discover_feed()
+  where id = 'dddd0000-0000-0000-0000-00000000000a';
+reset role;

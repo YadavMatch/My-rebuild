@@ -80,6 +80,23 @@ with checks as (
       where schemaname = 'public' and tablename = 'verification_attempts'
         and indexname = 'verification_attempts_provider_inquiry_key'
     )
+
+  -- 0009. Both halves matter: the function has to exist for an owner to be
+  -- able to erase itself, and the column grant has to be gone or the schema
+  -- still advertises a write the policy refuses.
+  union all select 19, '0009: delete_my_profile() exists, takes no argument',
+    exists (
+      select 1 from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'delete_my_profile'
+        and p.pronargs = 0 and p.prosecdef
+    )
+
+  union all select 20, '0009: authenticated may execute it',
+    has_function_privilege('authenticated', 'public.delete_my_profile()', 'execute')
+
+  union all select 21, '0009: authenticated can no longer write deleted_at',
+    not has_column_privilege('authenticated', 'public.profiles', 'deleted_at', 'update')
 )
 
 select n as "#",
