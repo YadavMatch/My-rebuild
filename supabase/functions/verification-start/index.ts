@@ -1,5 +1,5 @@
 /**
- * Starts a selfie verification.
+ * Starts an identity verification.
  *
  * Called by the signed-in app. Creates a Persona inquiry tagged with the
  * caller's user id and hands back a single-use hosted-flow URL for the device
@@ -9,7 +9,9 @@
  *
  * Secrets this function needs (`supabase secrets set NAME=value`):
  *   PERSONA_API_KEY      — server-side Persona key
- *   PERSONA_TEMPLATE_ID  — the selfie-only inquiry template, `itmpl_...`
+ *   PERSONA_TEMPLATE_ID  — the government-ID-plus-selfie template, `itmpl_...`.
+ *                          Must be from the same Persona environment as the
+ *                          key, or Persona rejects the inquiry.
  */
 
 import { withSupabase } from 'npm:@supabase/server@1';

@@ -1,4 +1,4 @@
-# NearMatch — selfie verification provider
+# NearMatch — identity verification provider
 
 Build step 7 in [`product-spec.md`](product-spec.md) needs a provider. This
 records which one, why the other two were rejected, and what is still
@@ -6,6 +6,28 @@ unverified — so the choice can be re-examined later without redoing the
 research.
 
 **Decision: Persona, through its Hosted Flow.** Not its React Native SDK.
+
+> **Amended 27 November 2026 — the requirement changed.** This document was
+> written for a **selfie-only** liveness check. The product decision is now
+> **government ID + selfie**: the document is read and the selfie's face is
+> matched against the photo on it. That is identity verification, not just
+> liveness.
+>
+> What that changes, and what it does not:
+>
+> * **Persona still fits**, and no code changed. The functions pass a
+>   template id and Persona's template decides the steps, so this was a
+>   configuration change.
+> * **Constraint 1 below is inverted** — it argued for selfie-only. It is
+>   kept, struck through, because the reasoning it records is why the first
+>   templates were built that way.
+> * **Veriff's main disqualification no longer applies.** It was rejected
+>   partly for having no selfie-only path; document + selfie is its core
+>   product. Its deletion cap still conflicts with discarding per
+>   verification, so the conclusion stands, but on one ground instead of two.
+> * **Stripe Identity is unaffected** — still out, because India is not a
+>   supported business location.
+> * **The privacy exposure grows.** See open question 3.
 
 The decision is final on provider. It is **not yet proven runnable**: one
 technical question is open, and it is the kind that can send the integration
@@ -21,18 +43,29 @@ re-check before signing anything.
 
 Four constraints, and they do most of the deciding.
 
-**1. A selfie, with no government ID.**
-The copy in `product-spec.md` promises an "AI selfie check" that adds a
-Verified badge. It does not promise document KYC, and NearMatch has no
-regulatory reason to collect identity documents. A provider that can only
-check a selfie *against an ID* cannot implement what the app says it does.
+**1. A government ID, and a selfie matched against it.** *(Amended; the
+original read "A selfie, with no government ID" — the reasoning for that is
+below, because it explains how the first templates were configured.)*
+The check reads an identity document and compares the face on it with a live
+selfie. That proves who someone is, not only that they are real.
 
-**2. The photo is discarded.**
+> ~~The copy in `product-spec.md` promises an "AI selfie check" that adds a
+> Verified badge. It does not promise document KYC, and NearMatch has no
+> regulatory reason to collect identity documents. A provider that can only
+> check a selfie *against an ID* cannot implement what the app says it
+> does.~~
+>
+> Superseded. The copy has been changed to describe a document check, and
+> the regulatory weight that argument avoided is now accepted deliberately
+> — see open question 3.
+
+**2. The document and the photo are discarded.**
 `verification_attempts` in `supabase/migrations/0001_initial_schema.sql` has
-no column for an image, by design. That makes the promise structural on our
-side, but the provider still holds the selfie — so the provider must offer
-deletion we can call per verification, not a retention window measured in
-months.
+no column for an image or for any identity field, by design. That makes the
+promise structural on our side, but the provider still holds the selfie and
+now the document too — so the provider must offer deletion we can call per
+verification, not a retention window measured in months. With an identity
+document in the flow, this constraint matters more than it did, not less.
 
 **3. The badge is awarded server-side only.**
 `revoke insert, update, delete on verification_attempts from authenticated`,
@@ -63,11 +96,13 @@ in Identity's document-coverage list of roughly 150 countries. That list is
 about whose passports Stripe can read, not about where the merchant may be.
 Document coverage is not account eligibility.
 
-**It has no selfie-only mode.** Selfie is an option on a document session
-(`options.document.require_matching_selfie: true`), and the docs instruct you
-to "first follow the guide to collect and verify identity documents." It
-matches face geometry between an ID and a selfie. Constraint 1 rules it out
-even for a company that could buy it.
+**It has no selfie-only mode** — *no longer a disqualification either.* The
+27 November amendment voids this one the same way it voids Veriff's second
+reason. Selfie on Stripe is an option on a document session
+(`options.document.require_matching_selfie: true`), matching face geometry
+between an ID and a selfie — which is precisely the amended requirement. So
+Stripe now fails on **one** ground rather than two, and that ground is
+enough: a business in India cannot buy it at all.
 
 For reference, had it been available: $1.50 per verification, first 50 free.
 
@@ -96,31 +131,42 @@ and Veriff reserves the right to "retain the Personal Data for its own
 purposes irrespective of the retention schedule." The selfie sits on their
 infrastructure either way.
 
-**No selfie-only first verification.** Biometric Authentication is explicitly
-a returning-user product: it matches a selfie against an earlier enrolment.
-Selfie-only *enrolment* exists but lives in a separate integration whose
-prerequisites say to "contact your Solutions Engineer for configuration."
-There is also a "Presence Verification" product described as confirming live
-human presence without documents — that came from a one-line index entry on a
-page nobody opened, and it is not a basis for a decision. If Persona falls
-through, this is the first thing to go and read properly.
+**No selfie-only first verification** — *no longer a disqualification.* This
+was the second reason for rejecting Veriff, and the 27 November amendment
+removes it: document + selfie is Veriff's core product, with Indian
+passports, ID cards and driving licences supported. The deletion cap above
+is now the only thing ruling it out, and it rules it out on its own. Kept for
+the record: Biometric Authentication is a returning-user product that matches
+a selfie against an earlier enrolment, and selfie-only enrolment needed a
+Solutions Engineer to configure.
+
+If Persona ever falls through, Veriff is the first place to look again — but
+check the deletion cap first, because nothing else about it has changed.
 
 ---
 
 ## Why Persona
 
-**Standalone selfie verification.** Type `verification/selfie`: "The
-individual is asked to take a video of their face in real-time, and Persona
-checks that the individual is live and real." Face *comparison* happens only
-"if a government ID was also submitted." Liveness plus optional age
-estimation, with no document — constraint 1, met directly.
+**Government ID and selfie, in one template.** Persona's selfie verification
+is documented as: "The individual is asked to take a video of their face in
+real-time, and Persona checks that the individual is live and real," and face
+*comparison* happens "if a government ID was also submitted." The amended
+requirement needs exactly that pairing, and it is a template setting rather
+than a different product — which is why the switch cost no code.
 
-This also sidesteps a gap in the research: Persona's per-country *document*
-coverage sits behind a dashboard map that could not be read, so Indian ID
-support is unconfirmed. It does not matter. A liveness check reads a face,
-not a document, so document coverage is not on the critical path. (An Aadhaar
-database check type does exist, `verification/database-aadhaar`, if an
-identity check is ever wanted on top.)
+**This re-opens a gap the original version dismissed.** Persona's per-country
+*document* coverage sits behind a dashboard map that could not be read, so
+**Indian ID support is still unconfirmed**. When the check was liveness-only
+that did not matter, because a face is not a document. It matters now: the
+flow is useless if it cannot read the documents Indian users actually hold.
+Confirm in the dashboard which Indian documents the template accepts before
+relying on this.
+
+On which documents to accept: passport, driving licence and voter ID are
+ordinary choices. **Aadhaar carries its own legal constraints in India** on
+collection and storage, and should stay out of the accepted set without
+advice. Persona does expose an Aadhaar database check
+(`verification/database-aadhaar`) if that is ever wanted deliberately.
 
 **Deletion is an ordinary API call with no cap.**
 `DELETE /api/v1/inquiries/{inquiry-id}` "permanently deletes personally
@@ -198,14 +244,21 @@ trade is real money against a promise already printed in the app — but note
 that Veriff Premium's $209 monthly minimum buys a delete endpoint that still
 cannot keep up, so cost alone does not reopen the decision.
 
-**3. The selfie crosses a border.** Persona is a US processor. The Mumbai
-region was chosen in [`supabase-setup.md`](supabase-setup.md) precisely
-because "NearMatch handles sensitive personal data for people in India."
-Verify-then-discard keeps the image out of our database, but a selfie is
-biometric data and sending it to a US provider is a cross-border transfer
-under the DPDP Act. The privacy policy copy has to say so, and the legal
-screen at `src/app/legal/[doc].tsx` already notes this area is "checked
-closely by app stores and regulators."
+**3. Identity documents cross a border.** *Materially larger since the 27
+November amendment.* Persona is a US processor. The Mumbai region was chosen
+in [`supabase-setup.md`](supabase-setup.md) precisely because "NearMatch
+handles sensitive personal data for people in India." Verify-then-discard
+keeps both the image and the document out of our database, but a selfie is
+biometric data and an identity document is more sensitive still, and sending
+either to a US provider is a cross-border transfer under the DPDP Act.
+
+A privacy policy now has to disclose that identity documents are collected,
+what is extracted from them, that they leave India, and that they are deleted
+after the check. The legal screen at `src/app/legal/[doc].tsx` is still an
+honest placeholder; it says so itself, and writing real policy text is not
+something this document can do for you. It is worth saying plainly: this was
+the compliance weight that constraint 1 originally existed to avoid, and the
+amendment accepts it on purpose.
 
 India-domiciled alternatives exist — HyperVerge, IDfy, Signzy — and **none of
 them were evaluated.** They are named here so the option is not forgotten,
@@ -248,7 +301,7 @@ duplicate delivery, which migration 0002 makes harmless.
 The Persona API key is server-only. It belongs in Supabase Edge Function
 secrets, never in an `EXPO_PUBLIC_*` variable. The three secrets the
 functions read are listed in
-[`supabase-setup.md`](supabase-setup.md#the-selfie-check).
+[`supabase-setup.md`](supabase-setup.md#the-identity-check).
 
 ---
 
@@ -262,7 +315,11 @@ functions read are listed in
 - Persona's pricing turns out to be enterprise-only with no self-serve tier,
   which would make step 4a's "~1 hour, usage-priced" estimate wrong and put
   Veriff's $0.80 self-serve tier back in contention — accepting that its
-  deletion cap means the "photo not stored" copy would have to change.
+  deletion cap means the "nothing is kept" copy would have to change.
+- Persona cannot read the Indian documents your users hold. Unconfirmed, and
+  it only became load-bearing with the 27 November amendment; see *Why
+  Persona*. Veriff publishes support for Indian passports, ID cards and
+  driving licences, so this is the scenario where it returns.
 
 ---
 
