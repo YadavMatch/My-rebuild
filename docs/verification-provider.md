@@ -231,13 +231,17 @@ Aadhaar number or checks one against UIDAI.
 
 Two further things the same run established first-hand:
 
-* **There is no desktop upload path.** At the document step the flow offers a
-  QR code and an email handoff and nothing else — no file input exists in the
-  page. This is the "file upload is disabled by default on mobile" setting
-  named in open item 1, now observed rather than quoted. For a user already
-  on a phone it costs nothing, but it means the check cannot be completed
-  from a desktop browser at all, so no automated test can ever cover the half
-  of the flow that runs after the link opens.
+* **There is no upload path in a headless browser.** At the document step the
+  flow offers a QR code and an email handoff and nothing else — no file input
+  anywhere in the page, shadow roots and iframes included. Note what this
+  does *not* prove: capture methods are configured separately for desktop
+  web, mobile web and native mobile apps, and Persona appears to classify a
+  headless browser as desktop web whatever user agent it sends. It offered
+  "Continue on another device" even to an iPhone user agent with a working
+  synthetic camera, and rendered no `<video>` element. So this observation
+  settles the desktop-web behaviour only; whether upload is offered on mobile
+  web has to be seen on a real phone. Either way, no automated test can cover
+  the half of the flow that runs after the link opens.
 * **The one-time link is genuinely single-use.** Loading it a second time no
   longer offers "Begin verifying". Any retry has to call `verification-start`
   for a fresh link, which the client already does.
@@ -333,7 +337,7 @@ through once. The hosted page costs none of it.
 
 ## What this does not settle
 
-Four open items. The first is a blocker; the others are commitments to
+Five open items. The first is a blocker; the others are commitments to
 make with open eyes.
 
 **1. ~~Can the camera open inside the in-app browser?~~ Settled on 27
@@ -438,6 +442,38 @@ whether a vendor with compatible consent text is needed instead. Resolve it
 before launch: it is the kind of discrepancy that reads as deception even
 when the engineering underneath is honest.
 
+**5. Nothing decides the inquiry, and deciding it is plan-gated.** *Found on
+27 November by completing a sandbox inquiry and watching the badge not
+appear.*
+
+The integration waits for an `inquiry.approved` event. One will never arrive
+until the Persona account holds something that issues verdicts. Persona's
+mechanism is a Workflow carrying an **Inquiry → Approve Inquiry** action:
+Automation → All Workflows, then saved *and published*.
+
+The catch is the price list. Persona's plan table marks the Approve Inquiry
+step **not available on the Startup Program**, and available on Essential,
+Growth and Enterprise. On Startup, every signup needs a human to approve it
+in the Persona dashboard before a badge appears — which is not a feature
+anyone can launch. **The plan, not the code, decides whether this ships.**
+Settle which plan the account is on before building anything else on top of
+this.
+
+Two things Persona's documentation does not answer, to be settled by
+observation rather than assumption:
+
+* whether a Workflow approval fires the same `inquiry.approved` webhook a
+  manual approval does. Both are documented as "set via post-inquiry
+  processes or manual update", which implies a single event, but no page says
+  so.
+* whether Workflows are environment-scoped the way webhooks are.
+
+When the Workflow is built, follow Persona's own best practice: write the
+flagging rules first and auto-approve in the `else` branch, rather than
+approving everything that completes. A badge that approves unconditionally is
+a badge that means nothing — and this one exists to tell one stranger that
+another is real.
+
 ---
 
 ## How it wires in
@@ -463,6 +499,24 @@ migration.
 5. `src/hooks/use-verification.ts` reads `profiles.verified` back, polling
    for about twelve seconds, because the webhook is usually still in flight
    when the browser closes.
+
+**The chain has a prerequisite that is not in this repository.** Step 3 acts
+on `inquiry.approved`, `inquiry.declined` and `inquiry.failed`, and ignores
+`inquiry.completed` on purpose: completed means the user reached the end of
+the steps, not that they passed, and Persona's own guidance is to "disregard
+the completed status and only use the approved status". But nothing in a
+Persona account issues a verdict by itself. A completed inquiry sits at
+**Needs Review** until a post-inquiry Workflow or a human decides it —
+approval is "set via post-inquiry processes or manual update", and there is
+no default. Until that decisioning step exists, the badge can never set
+itself, however correct the code is. See open item 5.
+
+**Webhooks are per-environment, and the failure is silent.** One registered
+in Production delivers nothing for a sandbox inquiry: no error, no retry, an
+empty delivery log. Confirmed on 27 November, when a completed sandbox
+inquiry produced zero delivery attempts because the only webhook lived in the
+other environment. The webhook must also be subscribed to the three events
+above; subscribing to `inquiry.completed` alone gets a 204 and nothing else.
 
 Step 4 belongs in the webhook handler and not in a nightly cleanup job: a
 cleanup job that fails quietly leaves selfies on a third party's servers
