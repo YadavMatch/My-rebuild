@@ -60,6 +60,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "nearmatch.in2010"
+    "owner": "nearmatch.in2010",
+    "extra": {
+      "eas": {
+        "projectId": "1a3cc6b2-bf8d-483a-94c0-90415890f4de"
+      }
+    }
   }
 }
