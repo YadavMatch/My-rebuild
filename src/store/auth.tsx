@@ -18,6 +18,7 @@ import {
 } from 'react';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { setCurrentUserId } from '@/services/supabase-service';
 
 type AuthResult = { ok: true; needsEmailConfirmation?: boolean } | { ok: false; message: string };
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => {
         if (!cancelled) {
           setSession(data.session);
+          setCurrentUserId(data.session?.user.id ?? null);
           setReady(true);
         }
       })
@@ -66,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: subscription } = client.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      // The data layer picks its implementation from this, so it has to be
+      // updated before any screen re-renders and refetches.
+      setCurrentUserId(next?.user.id ?? null);
     });
 
     return () => {

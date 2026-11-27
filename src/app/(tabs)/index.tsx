@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/app-header';
 import { Pill } from '@/components/badges';
+import { LocationPrompt } from '@/components/location-prompt';
 import { ScreenLoading, EmptyState } from '@/components/screen-state';
 import { Segmented } from '@/components/segmented';
 import { SwipeDeck } from '@/components/swipe-deck';
@@ -24,6 +25,9 @@ export default function DiscoverScreen() {
   const { excludedIds, state, like, pass, canLike, likesRemaining } = useDecisions();
   const [segment, setSegment] = useState<Segment>('Discover');
   const [deck, setDeck] = useState<Profile[] | undefined>(undefined);
+  // Bumped to refetch deliberately — after a location is set, the feed can
+  // finally order by distance and every card gains a real label.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Load once storage has been read, so the deck is not built from an empty
   // exclusion list and then immediately rebuilt.
@@ -48,11 +52,11 @@ export default function DiscoverScreen() {
     return () => {
       cancelled = true;
     };
-    // Keyed on hydration only: re-running on every change to `excludedIds`
-    // would refetch and reshuffle the deck after each swipe. Cards are
-    // removed locally in `handleDecision` instead.
+    // Keyed on hydration and an explicit reload: re-running on every change
+    // to `excludedIds` would refetch and reshuffle the deck after each swipe.
+    // Cards are removed locally in `handleDecision` instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.hydrated]);
+  }, [state.hydrated, reloadKey]);
 
   const handleDecision = useCallback(
     (profile: Profile, decision: Decision) => {
@@ -84,7 +88,15 @@ export default function DiscoverScreen() {
             params: { id: profile.id, conversationId },
           });
         })
-        .catch(() => {});
+        .catch((e: unknown) => {
+          // The daily cap is enforced by a database trigger, so the server
+          // can refuse a like the client thought was allowed. Swallowing it
+          // made the card vanish and the like disappear with it.
+          setDeck((current) => (current ? [profile, ...current] : [profile]));
+          if (e instanceof Error && e.message === 'daily_like_limit_reached') {
+            router.push('/paywall');
+          }
+        });
     },
     [like, pass, router, canLike],
   );
@@ -122,6 +134,15 @@ export default function DiscoverScreen() {
               ? 'No likes left today — they come back tomorrow'
               : `${likesRemaining} ${likesRemaining === 1 ? 'like' : 'likes'} left today`}
           </ThemedText>
+        ) : null}
+
+        {segment === 'Discover' ? (
+          <LocationPrompt
+            onCaptured={() => {
+              setDeck(undefined);
+              setReloadKey((n) => n + 1);
+            }}
+          />
         ) : null}
 
         {segment === 'Discover' ? (

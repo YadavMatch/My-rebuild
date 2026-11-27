@@ -18,12 +18,14 @@ import {
 } from 'react';
 
 import {
+  fetchEntitlement,
   registerLike,
   registerPass,
   registerSuperLike,
   resetConversations,
   submitReport,
 } from '@/services';
+import { useAuth } from '@/store/auth';
 import {
   FREE_DAILY_LIKES,
   type Decision,
@@ -217,6 +219,7 @@ type DecisionsValue = {
 const DecisionsContext = createContext<DecisionsValue | undefined>(undefined);
 
 export function DecisionsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [state, dispatch] = useReducer(reducer, initialState);
 
   // Read persisted state once on mount. A corrupt or absent value is not an
@@ -310,16 +313,31 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
     );
   }, [state]);
 
+  // Both of these record the decision before the server has accepted it, so
+  // the deck advances with the swipe rather than after a round trip. If the
+  // server then refuses — the daily cap is enforced by a trigger — the local
+  // record has to come back off, or the profile is excluded from the deck
+  // forever despite never having been swiped on.
   const like = useCallback(async (profileId: string) => {
     dispatch({ type: 'decided', profileId, decision: 'like' });
-    const result = await registerLike(profileId);
-    return result.matched ? result.conversationId : undefined;
+    try {
+      const result = await registerLike(profileId);
+      return result.matched ? result.conversationId : undefined;
+    } catch (e) {
+      dispatch({ type: 'undone' });
+      throw e;
+    }
   }, []);
 
   const superLike = useCallback(async (profileId: string) => {
     dispatch({ type: 'decided', profileId, decision: 'superlike' });
-    const result = await registerSuperLike(profileId);
-    return result.matched ? result.conversationId : undefined;
+    try {
+      const result = await registerSuperLike(profileId);
+      return result.matched ? result.conversationId : undefined;
+    } catch (e) {
+      dispatch({ type: 'undone' });
+      throw e;
+    }
   }, []);
 
   const pass = useCallback(async (profileId: string) => {
@@ -359,6 +377,27 @@ export function DecisionsProvider({ children }: { children: ReactNode }) {
   const setPremium = useCallback(async (premium: boolean) => {
     dispatch({ type: 'setPremium', premium });
   }, []);
+
+  // With an account, Premium is whatever the server says — the same value the
+  // like-limit trigger reads. The Settings toggle is a seed-data affordance;
+  // letting it override this is what made the app promise unlimited likes
+  // that the database then refused.
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    let cancelled = false;
+    fetchEntitlement()
+      .then((premium) => {
+        if (!cancelled && premium !== null) {
+          dispatch({ type: 'setPremium', premium });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const confirmAge = useCallback(async (dateOfBirth: Date) => {
     dispatch({ type: 'ageConfirmed', dateOfBirth: dateOfBirth.toISOString().slice(0, 10) });

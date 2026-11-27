@@ -55,7 +55,13 @@ export default function ProfileDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <ProfilePhoto emoji={profile.emoji} name={profile.name} size={120} style={styles.hero} />
+      <ProfilePhoto
+        emoji={profile.emoji}
+        photoUrl={profile.photoUrl}
+        name={profile.name}
+        size={120}
+        style={styles.hero}
+      />
 
       <View style={styles.header}>
         <View style={styles.nameRow}>

@@ -3,12 +3,12 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CURRENT_USER_ID } from '@/services';
+import { currentUserId } from '@/services';
 import type { Message } from '@/types';
 
 export function MessageBubble({ message, senderName }: { message: Message; senderName: string }) {
   const theme = useTheme();
-  const isMine = message.senderId === CURRENT_USER_ID;
+  const isMine = message.senderId === currentUserId();
 
   return (
     <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>

@@ -10,7 +10,12 @@ import { ScreenLoading, EmptyState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CURRENT_USER_ID, fetchConversations, getProfileSync } from '@/services';
+import {
+  currentUserId,
+  fetchConversations,
+  getProfileSync,
+  subscribeToMyMessages,
+} from '@/services';
 import { useDecisions } from '@/store/decisions';
 import type { Conversation } from '@/types';
 
@@ -29,6 +34,19 @@ export default function MessagesScreen() {
       }
       let cancelled = false;
 
+      // Refetched when the tab regains focus, and again whenever a message
+      // lands while it is already open — otherwise a conversation only moves
+      // to the top once you navigate away and come back.
+      const unsubscribe = subscribeToMyMessages(() => {
+        fetchConversations(state.blocked)
+          .then((list) => {
+            if (!cancelled) {
+              setConversations(list);
+            }
+          })
+          .catch(() => {});
+      });
+
       fetchConversations(state.blocked)
         .then((result) => {
           if (!cancelled) {
@@ -43,6 +61,9 @@ export default function MessagesScreen() {
 
       return () => {
         cancelled = true;
+        // Leaving the tab closes the channel; without this each visit opens
+        // another and none of them ever close.
+        unsubscribe();
       };
     }, [state.hydrated, state.blocked]),
   );
@@ -83,7 +104,7 @@ export default function MessagesScreen() {
 
               const last = item.messages.at(-1);
               const preview = last
-                ? `${last.senderId === CURRENT_USER_ID ? 'You: ' : ''}${last.text}`
+                ? `${last.senderId === currentUserId() ? 'You: ' : ''}${last.text}`
                 : 'You matched — say hello';
 
               return (
@@ -94,6 +115,7 @@ export default function MessagesScreen() {
                   style={styles.row}>
                   <ProfilePhoto
                     emoji={profile.emoji}
+                    photoUrl={profile.photoUrl}
                     name={profile.name}
                     size={26}
                     style={styles.avatar}

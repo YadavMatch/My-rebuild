@@ -21,33 +21,78 @@ psql -h "$DIR" -p "$PORT" -U postgres -qc 'create database nm' >/dev/null
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 create schema if not exists auth;
-grant usage on schema public, auth to anon, authenticated;
+grant usage on schema public, auth to anon, authenticated, service_role;
+-- Supabase grants EXECUTE on functions in public to anon and authenticated by
+-- default, applied as each function is created. Modelling it here rather than
+-- granting after the migrations is the difference between testing whether a
+-- revoke holds and handing the privilege back once it has run.
+alter default privileges in schema public grant execute on functions to anon, authenticated;
 create table auth.users (id uuid primary key default gen_random_uuid(),
   raw_user_meta_data jsonb default '{}'::jsonb);
 create or replace function auth.uid() returns uuid language sql stable
   as $$ select current_setting('test.uid', true)::uuid $$;
 grant execute on function auth.uid() to anon, authenticated;
+
+-- Supabase Storage, enough of it to check the bucket and its policies.
+create schema if not exists storage;
+grant usage on schema storage to anon, authenticated;
+create table storage.buckets (
+  id text primary key, name text not null, public boolean not null default false,
+  file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(), bucket_id text, name text,
+  owner uuid, created_at timestamptz default now());
+alter table storage.objects enable row level security;
+create or replace function storage.foldername(name text) returns text[]
+  language sql immutable as $fn$ select string_to_array(name, '/') $fn$;
+
+-- pg_net, which is what the message trigger calls out through.
+create schema if not exists net;
+create table net._calls (id bigserial primary key, url text, body jsonb);
+create or replace function net.http_post(
+  url text, body jsonb default '{}', params jsonb default '{}',
+  headers jsonb default '{}', timeout_milliseconds int default 5000)
+  returns bigint language sql as $fn$
+    insert into net._calls (url, body) values (url, body) returning id;
+  $fn$;
 SQL
 
-sed -e 's/create extension if not exists postgis  with schema extensions;/-- postgis is not installed locally/' \
-    -e 's/create extension if not exists pgcrypto with schema extensions;/create extension if not exists pgcrypto;/' \
-    -e 's/geography(point, 4326)/text/' \
-    -e 's/create index on profiles using gist (geo);/-- gist needs postgis/' \
-    -e 's/st_dwithin(p.geo, me.geo, max_distance_m)/true/' \
-    -e '/p.geo <-> me.geo,/d' \
-    -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
-    "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
+# PostGIS stand-ins. The properties under test are privileges and triggers.
+stub() {
+  sed -e 's/create extension if not exists postgis  with schema extensions;/-- postgis is not installed locally/' \
+      -e 's/create extension if not exists pgcrypto with schema extensions;/create extension if not exists pgcrypto;/' \
+      -e 's/geography(point, 4326)/text/' \
+      -e 's/create index on profiles using gist (geo);/-- gist needs postgis/' \
+      -e 's/st_dwithin(p.geo, me.geo, max_distance_m)/true/' \
+      -e 's/st_dwithin(pp.geo, me.geo, max_distance_m)/true/' \
+      -e 's/st_distance(p.geo, me.geo)/0/g' \
+      -e 's/st_distance(pp.geo, me.geo)/0/g' \
+      -e 's/select pr.geo from profiles_private pr where pr.id = auth.uid()/select pr.geo from profiles_private pr where pr.id = auth.uid()/' \
+      -e '/p.geo <-> me.geo,/d' \
+      -e 's/pp.geo <-> me.geo/0/g' \
+      -e 's/p.geo <-> me.geo/0/g' \
+      -e 's/add column if not exists geo geography(point, 4326)/add column if not exists geo text/' \
+      -e 's/create index on profiles_private using gist (geo);/-- gist needs postgis/' \
+      -e 's/alter publication supabase_realtime add table messages;/-- realtime is Supabase-only/' \
+      -e 's/create extension if not exists pg_net with schema extensions;/-- pg_net is stubbed above/' \
+      "$1"
+}
 
+stub "$HERE/../migrations/0001_initial_schema.sql" > "$DIR/migration.sql"
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/migration.sql"
-echo "migration applied"
+echo "0001_initial_schema.sql applied"
 
-# Later migrations need none of the rewriting above, so they are applied as
-# written. Globbed rather than listed so a new one is picked up without
-# touching this script.
+# Later migrations go through the same stubbing: 0005 touches storage.objects,
+# 0006 wants pg_net and 0003 adds a geography column, none of which exist on a
+# plain Postgres. Globbed rather than listed so a new migration is picked up
+# without touching this script.
 for later in "$HERE"/../migrations/0[0-9][0-9][0-9]_*.sql; do
   case "$later" in *0001_initial_schema.sql) continue ;; esac
-  psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$later"
+  name="$(basename "$later" .sql)"
+  stub "$later" > "$DIR/$name.sql"
+  psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/$name.sql"
   echo "$(basename "$later") applied"
 done
 psql -h "$DIR" -p "$PORT" -U postgres -d nm -f "$HERE/schema_test.sql"

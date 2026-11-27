@@ -189,6 +189,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard(
         <View style={[styles.photo, { backgroundColor: colors.photoBackground }]}>
           <ProfilePhoto
             emoji={profile.emoji}
+            photoUrl={profile.photoUrl}
             name={profile.name}
             size={88}
             style={styles.photoInner}

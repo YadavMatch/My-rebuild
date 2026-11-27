@@ -121,6 +121,7 @@ export default function MatchScreen() {
             <Animated.View style={[styles.avatarWrap, mineStyle]}>
               <ProfilePhoto
                 emoji={me.emoji}
+                photoUrl={me.photoUrl}
                 name={me.name}
                 size={44}
                 style={[styles.avatar, { borderColor: theme.backgroundElement }]}
@@ -130,6 +131,7 @@ export default function MatchScreen() {
             <Animated.View style={[styles.avatarWrap, styles.avatarRight, theirsStyle]}>
               <ProfilePhoto
                 emoji={profile.emoji}
+                photoUrl={profile.photoUrl}
                 name={profile.name}
                 size={44}
                 style={[styles.avatar, { borderColor: theme.backgroundElement }]}

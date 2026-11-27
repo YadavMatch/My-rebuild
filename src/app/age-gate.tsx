@@ -8,6 +8,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
 import { BRAND_GRADIENT, Fonts, Radius, Spacing } from '@/constants/theme';
+import { ageOn } from '@/lib/age';
 import { useDecisions } from '@/store/decisions';
 
 /**
@@ -213,15 +214,6 @@ function parseDate(day: string, month: string, year: string): Date | null {
 }
 
 /** Whole years between two dates, counting the birthday correctly. */
-function ageOn(birth: Date, on: Date): number {
-  let age = on.getFullYear() - birth.getFullYear();
-  const monthDiff = on.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && on.getDate() < birth.getDate())) {
-    age -= 1;
-  }
-  return age;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#241611' },
   safeArea: {
