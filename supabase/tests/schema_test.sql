@@ -127,7 +127,7 @@ select count(*) as premium_lifts_cap_to_7 from swipes
   where actor_id='cccccccc-cccc-cccc-cccc-cccccccccccc' and decision <> 'pass';
 
 \echo ''
-\echo '=== one inquiry records one attempt (0002) ==='
+\echo '=== one inquiry records one attempt (0008) ==='
 -- A webhook retry must not turn one check into two rows. Persona retries up
 -- to seven more times and does not guarantee order, so this is the property
 -- the handler's upsert depends on.
@@ -139,7 +139,7 @@ insert into verification_attempts (user_id, passed, provider, inquiry_id)
 \echo '-- the same id from a different provider (expect: succeeds)'
 insert into verification_attempts (user_id, passed, provider, inquiry_id)
   values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'other', 'inq_retry');
-\echo '-- two rows with no inquiry id (expect: succeeds; pre-0002 rows)'
+\echo '-- two rows with no inquiry id (expect: succeeds; pre-0008 rows)'
 insert into verification_attempts (user_id, passed, provider) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'legacy'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true, 'legacy');

@@ -100,7 +100,7 @@ export default {
 
     // Upsert, not insert. Persona retries a delivery up to seven more times
     // and does not guarantee order, so the same verdict can arrive twice. The
-    // unique index on (provider, inquiry_id) from migration 0002 turns the
+    // unique index on (provider, inquiry_id) from migration 0008 turns the
     // repeat into a no-op rather than a second attempt row.
     //
     // `ignoreDuplicates` keeps the first verdict recorded for an inquiry
