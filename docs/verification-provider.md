@@ -208,6 +208,45 @@ not an option that exists.
 > documented on a second pass — the documented database types are AAMVA,
 > ECBSV, phone carrier, SERPRO and TIN. The claim should not have been made.
 
+### Confirmed against the live flow, 27 November 2026
+
+Everything above this heading was read from documentation. The sandbox flow
+has since been driven from this repository, through the deployed
+`verification-start`, which settles it by observation rather than reading.
+After selecting India, the hosted flow asks for exactly one of:
+
+| Accepted document |
+| --- |
+| Driver License |
+| National ID |
+| PAN Card |
+| Passport |
+| Voter ID |
+
+That is the documented set — `dl`, `id`, `pan`, `pp`, `vid` — with nothing
+missing and nothing extra. **Aadhaar does not appear**, which confirms the
+correction above rather than softening it. "National ID" is a generic class
+and is not a synonym for Aadhaar: nothing observed suggests Persona reads an
+Aadhaar number or checks one against UIDAI.
+
+Two further things the same run established first-hand:
+
+* **There is no desktop upload path.** At the document step the flow offers a
+  QR code and an email handoff and nothing else — no file input exists in the
+  page. This is the "file upload is disabled by default on mobile" setting
+  named in open item 1, now observed rather than quoted. For a user already
+  on a phone it costs nothing, but it means the check cannot be completed
+  from a desktop browser at all, so no automated test can ever cover the half
+  of the flow that runs after the link opens.
+* **The one-time link is genuinely single-use.** Loading it a second time no
+  longer offers "Begin verifying". Any retry has to call `verification-start`
+  for a fresh link, which the client already does.
+
+What the run did *not* establish: no verification was completed, so the
+webhook has never fired. The `verification_attempts` write, the badge write
+and the `reference-id` mapping on a real webhook payload all remain unproven.
+The device run in open item 1 is what closes them.
+
 ### If Aadhaar is wanted: the OVSE route, and it cannot go through Persona
 
 UIDAI registers Offline Verification Seeking Entities for consent-based
@@ -294,7 +333,7 @@ through once. The hosted page costs none of it.
 
 ## What this does not settle
 
-Three open items. The first is a blocker; the others are commitments to
+Four open items. The first is a blocker; the others are commitments to
 make with open eyes.
 
 **1. ~~Can the camera open inside the in-app browser?~~ Settled on 27
@@ -368,6 +407,36 @@ them were evaluated.** They are named here so the option is not forgotten,
 not as a recommendation. If on-shore processing turns out to be a
 requirement rather than a preference, that research has to happen before any
 Persona integration work, not after.
+
+**4. Persona's own consent text contradicts this app's promise.** *Found on
+27 November by reading the first screen of the live flow, not the docs.*
+Before anything is photographed, Persona tells the user their biometric
+information is processed to "verify your identity, identify fraud, and
+improve Persona's platform", and that it "will be stored for no more than 3
+years".
+
+Both halves sit badly with the copy in `src/app/edit-profile.tsx`, which
+tells the user "both images are deleted once the check finishes — neither
+ever reaches our database". The second clause is true and verified. The first
+is where the trouble is:
+
+* **Three years is not "deleted once the check finishes".** The integration
+  calls Persona's redaction endpoint as soon as a verdict arrives, and that
+  is verified to work — `redacted-at` comes back set. Redaction is why the
+  app can honestly say *it* keeps nothing. But the user is consenting to a
+  three-year ceiling, and the distance between the ceiling they agree to and
+  what we actually do is something the app's wording never acknowledges.
+* **"Improve Persona's platform" is a second purpose.** The app asks for an
+  identity check. It does not ask permission to contribute a face to a
+  vendor's product development, and the screen obtaining that consent is one
+  the app never shows and cannot reword.
+
+No code change fixes this; redaction already does everything code can do. It
+is a question of whether the in-app copy and the privacy policy can be made
+truthful alongside a consent screen we do not control — and if they cannot,
+whether a vendor with compatible consent text is needed instead. Resolve it
+before launch: it is the kind of discrepancy that reads as deception even
+when the engineering underneath is honest.
 
 ---
 

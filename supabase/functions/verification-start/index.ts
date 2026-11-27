@@ -16,7 +16,7 @@
 
 import { withSupabase } from 'npm:@supabase/server@1';
 
-import { createInquiry } from '../_shared/persona.ts';
+import { createInquiry, PersonaApiError } from '../_shared/persona.ts';
 
 export default {
   // `auth: 'user'` rejects anything without a valid user JWT before the
@@ -61,10 +61,19 @@ export default {
       const { oneTimeLink } = await createInquiry({ apiKey, templateId, userId });
       return Response.json({ url: oneTimeLink });
     } catch (cause) {
-      // Logged in full, returned vague: the upstream message can carry
-      // account detail the client has no business seeing.
+      // The message is logged in full and withheld from the response, because
+      // it can carry account detail a client has no business seeing. The
+      // status code is different: it is a number, it leaks nothing, and
+      // without it a failure here is indistinguishable from any other — which
+      // cost three debugging rounds before it was added.
       console.error('Persona inquiry creation failed', cause);
-      return Response.json({ error: 'Could not start verification.' }, { status: 502 });
+      return Response.json(
+        {
+          error: 'Could not start verification.',
+          upstreamStatus: cause instanceof PersonaApiError ? cause.status : undefined,
+        },
+        { status: 502 },
+      );
     }
   }),
 };

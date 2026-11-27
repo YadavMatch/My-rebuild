@@ -26,6 +26,21 @@ function headers(apiKey: string): HeadersInit {
   };
 }
 
+/**
+ * Carries Persona's HTTP status so the caller can report it without having to
+ * read function logs. The status alone separates the causes that matter: 401
+ * is the key, 400 is our request, 404 is a template the key cannot see.
+ */
+export class PersonaApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, body: string) {
+    super(`Persona rejected the request: ${status} ${body}`);
+    this.name = 'PersonaApiError';
+    this.status = status;
+  }
+}
+
 export type CreatedInquiry = {
   inquiryId: string;
   /** The hosted-flow URL to open on the device. Single-use. */
@@ -38,16 +53,19 @@ export type CreatedInquiry = {
  * `auto-create-one-time-link` means the link comes back on this response, so
  * there is no second round trip to the generate-link endpoint.
  *
- * The user's id is sent twice, deliberately. `reference-id` on the inquiry is
- * marked deprecated in Persona's current docs, but it is the field that shows
- * up as `reference-id` on the webhook payload, which is how the webhook maps
- * the result back to a user. `auto-create-account-reference-id` is the
- * non-deprecated replacement and sets the same value on the Persona account.
- * Sending both means the mapping survives either field going away.
+ * The user's id goes in `meta.auto-create-account-reference-id` and nowhere
+ * else. Sending it in both places is not a belt-and-braces option: Persona
+ * rejects the pair outright with
  *
- * NOTE: which of the two actually populates the webhook payload was not
- * confirmed against a live inquiry — only against the docs. Verify it on the
- * first sandbox run and drop whichever is redundant.
+ *   400 data.attributes.reference_id cannot be present with
+ *       meta.auto_create_account_reference_id
+ *
+ * Checked against the sandbox API on 27 Nov 2026: with only
+ * `auto-create-account-reference-id` sent, the created inquiry still comes
+ * back with `data.attributes.reference-id` set to that same value, so the
+ * webhook can map on it. That is the field the webhook reads, and this is the
+ * non-deprecated way to set it — `reference-id` on the inquiry is marked
+ * deprecated in Persona's current docs.
  */
 export async function createInquiry(opts: {
   apiKey: string;
@@ -61,7 +79,6 @@ export async function createInquiry(opts: {
       data: {
         attributes: {
           'inquiry-template-id': opts.templateId,
-          'reference-id': opts.userId,
         },
       },
       meta: {
@@ -72,9 +89,7 @@ export async function createInquiry(opts: {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Persona rejected the inquiry: ${response.status} ${await response.text()}`,
-    );
+    throw new PersonaApiError(response.status, await response.text());
   }
 
   const body = await response.json();

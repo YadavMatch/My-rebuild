@@ -216,8 +216,11 @@ npx supabase secrets set PERSONA_API_KEY=... PERSONA_TEMPLATE_ID=itmpl_... PERSO
   inquiry and a 502 from `verification-start`), and its accepted documents
   must cover what your users actually hold. Choose **passport, driving
   licence, voter ID and PAN** — Persona's documented Indian classes are `pan`
-  and `vid`, with driving licence and passport as generic ones, and the
-  dashboard's coverage map is the only place the real per-country list lives.
+  and `vid`, with driving licence and passport as generic ones. Driving the
+  live sandbox flow on 27 November showed India offering exactly **Driver
+  License, National ID, PAN Card, Passport and Voter ID**, which matches
+  those classes, so the documented set can be trusted here; the dashboard's
+  coverage map remains the authority for any other country.
   **Aadhaar is not on offer through Persona at all**, and the routes that do
   support it are separate integrations with their own registration: see
   *Indian documents, and the Aadhaar question* in
@@ -263,9 +266,17 @@ noted as unresolved in the decision record:
   is a browser Persona supports outright, so this should be a formality —
   but it has not been run on a device yet. Note their two requirements:
   cameras below 640×480 are unsupported, and file upload is disabled by
-  default on mobile, under Configure → General → Image capture methods.
-- The webhook payload carries a **`reference-id`**. The client sends the user
-  id twice, under `reference-id` and `meta.auto-create-account-reference-id`,
-  because Persona's docs deprecate the first but it is the one documented to
-  appear on the payload. Once you have seen a real delivery, drop whichever is
-  redundant.
+  default on mobile, under Configure → General → Image capture methods. That
+  default is still in force on this template, confirmed by driving the flow:
+  the document step offers a QR code and an email handoff and no file input
+  at all, so there is no way to finish the check anywhere but on a phone.
+- The webhook payload carries a **`reference-id`**. The user id is sent in
+  `meta.auto-create-account-reference-id` and nowhere else. Sending it in
+  both places as well was tried and is rejected outright — Persona answers
+  `400 data.attributes.reference_id cannot be present with
+  meta.auto_create_account_reference_id` — so it is not a belt-and-braces
+  option. Verified against the sandbox API: with only the non-deprecated
+  field sent, the created inquiry still comes back with
+  `data.attributes.reference-id` set to that value, which is what the webhook
+  maps on. Still unconfirmed on an actual webhook delivery, because no
+  verification has been completed yet.

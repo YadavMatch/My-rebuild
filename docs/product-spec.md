@@ -58,7 +58,7 @@ representations rather than marketing.
 | Match on mutual like | Simulated | Backend with both users' likes |
 | Real-time messages | Not built | Realtime subscriptions |
 | Photo upload / avatar choice | Not built | Storage bucket, image picker, moderation on upload |
-| ID + selfie check, nothing kept | **Built, unconfigured** | A sandbox template whose documents cover India, and one sandbox run on a real device |
+| ID + selfie check, nothing kept | **Starting works; finishing unproven** | One sandbox run on a real device: the webhook has never fired, so the badge write is untested. "Nothing kept" is also contradicted by Persona's own consent screen — see open item 4 of the [decision record](verification-provider.md) |
 | Timestamped 18+ confirmation | **Done** | — |
 | Blocking enforced everywhere | Client-side only | Server-side filtering on feed, matches and messages |
 | One-tap report on profile | **Done** | Moderation queue to receive it |
