@@ -12,7 +12,7 @@
  *
  *   1. Ask `verification-start` for a hosted Persona URL. The function reads
  *      the caller from the JWT, so the device cannot nominate a user.
- *   2. Open it in the in-app browser. The person photographs a government ID
+ *   2. Open it in the system browser. The person photographs a government ID
  *      and takes a selfie there, and Persona matches the two.
  *   3. Read `profiles.verified` back from the server.
  *
@@ -22,17 +22,37 @@
  * redirect URL and no deep link: there is nothing for Persona to hand back
  * that we would trust.
  *
- * It uses `openBrowserAsync` rather than `openAuthSessionAsync`. The latter
- * exists to capture a redirect, which — per the above — we do not need, and
- * on iOS it runs in `ASWebAuthenticationSession`, a context hardened for
- * OAuth whose camera access is the open question in
- * `docs/verification-provider.md`. `openBrowserAsync` gets
- * `SFSafariViewController`, an ordinary browser view. If the camera turns out
- * to work in neither, the fallback is `react-native-webview` and only this
- * file changes.
+ * It hands the URL to the **system browser** with `Linking.openURL`, rather
+ * than opening an in-app browser or a webview. Persona's own documentation
+ * drove that:
+ *
+ *   * Its supported browsers are the real ones — Chrome 79+, Firefox 74+,
+ *     Safari 13+, Edge 80+, Brave — and it says "In-app browsers (e.g.
+ *     Facebook Browser, Instagram Browser) are not supported", warning that
+ *     "Aspects of the Inquiry flow may be degraded or not function
+ *     entirely". A system-browser wrapper such as `SFSafariViewController`
+ *     is not named either way, which is not a guarantee worth building on
+ *     when the flow needs a camera.
+ *   * "We do not support using the WebView integration with React Native",
+ *     so `react-native-webview` is not a fallback.
+ *   * Its own recommendation for React Native is the native SDK, which needs
+ *     a prebuild and gives up Continuous Native Generation.
+ *
+ * Handing the URL to Safari or Chrome itself sidesteps all three: it is a
+ * browser Persona supports, so camera access is the platform's own and not a
+ * wrapper's, and nothing native is added.
+ *
+ * The cost is that the person leaves the app. Persona's Hosted Flow lists
+ * exactly that as a requirement — "It's acceptable for users to leave your
+ * site temporarily" — and it costs us nothing architecturally, because the
+ * verdict was never coming back through the device anyway.
+ *
+ * So `ok` here means the browser opened, not that the check finished or
+ * passed. `use-verification.ts` picks the result up when the app returns to
+ * the foreground.
  */
 
-import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -42,10 +62,11 @@ const NOT_CONFIGURED =
   'Verification needs the backend configured. Fill in the Supabase keys and sign in first.';
 
 /**
- * Creates an inquiry and opens the hosted flow.
+ * Creates an inquiry and hands its hosted URL to the system browser.
  *
- * Resolves when the browser closes, which says the person finished with the
- * page — not that they passed. Read the flag afterwards for that.
+ * Resolves once the browser has been handed the URL. It says nothing about
+ * whether the person completed the check, let alone passed it: they are in
+ * another app at that point, and the verdict reaches the server directly.
  */
 export async function startVerification(): Promise<StartResult> {
   if (!isSupabaseConfigured) {
@@ -77,7 +98,15 @@ export async function startVerification(): Promise<StartResult> {
     return { ok: false, message: 'Verification is not available right now.' };
   }
 
-  await WebBrowser.openBrowserAsync(url);
+  // Throws if nothing can open the URL, which on a device with no browser is
+  // a real possibility worth reporting rather than swallowing.
+  try {
+    await Linking.openURL(url);
+  } catch (cause) {
+    console.error('Could not open the verification URL', cause);
+    return { ok: false, message: 'Could not open your browser to start the check.' };
+  }
+
   return { ok: true };
 }
 
