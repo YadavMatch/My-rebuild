@@ -7,6 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { captureLocation } from '@/lib/location';
+import { registerForPush } from '@/lib/push';
 import { useAuth } from '@/store/auth';
 import { useDecisions } from '@/store/decisions';
 
@@ -89,6 +91,50 @@ export default function SettingsScreen() {
             </SettingsSection>
           ) : null}
 
+          {user ? (
+            <SettingsSection title="NOTIFICATIONS">
+              <SettingsRow
+                emoji="🔔"
+                label="Turn on message notifications"
+                onPress={() => {
+                  registerForPush()
+                    .then((r) => {
+                      Alert.alert(
+                        r.ok ? 'Notifications on' : 'Not turned on',
+                        r.ok
+                          ? 'You will hear about new messages on this device.'
+                          : r.message,
+                      );
+                    })
+                    .catch(() => {});
+                }}
+                last
+              />
+            </SettingsSection>
+          ) : null}
+
+          {user ? (
+            <SettingsSection title="LOCATION">
+              <SettingsRow
+                emoji="📍"
+                label="Update my location"
+                onPress={() => {
+                  captureLocation()
+                    .then((r) => {
+                      Alert.alert(
+                        r.ok ? 'Location updated' : 'Location not updated',
+                        r.ok
+                          ? 'Distances on profile cards will use your new location.'
+                          : r.message,
+                      );
+                    })
+                    .catch(() => {});
+                }}
+                last
+              />
+            </SettingsSection>
+          ) : null}
+
           <SettingsSection title="MEMBERSHIP">
             <SettingsRow
               emoji="👑"
@@ -135,6 +181,13 @@ export default function SettingsScreen() {
               onPress={confirmDeleteAccount}
               destructive
             />
+            {/*
+              Only offered on sample data. With a real account the swipes and
+              matches live on the server, so this would clear local state and
+              appear to do nothing — a button that lies is worse than one that
+              is not there.
+            */}
+            {user ? null : (
             <SettingsRow
               emoji="🔄"
               label="Reset swipes and matches"
@@ -155,6 +208,14 @@ export default function SettingsScreen() {
                 );
               }}
             />
+            )}
+            {/*
+              Only on sample data. With an account, Premium comes from the
+              entitlements table, which the client cannot write — a toggle
+              that appears to grant it would promise unlimited likes the
+              database then refuses.
+            */}
+            {user ? null : (
             <SettingsRow
               emoji="🧪"
               label={
@@ -169,6 +230,7 @@ export default function SettingsScreen() {
                 setPremium(!state.premium).catch(() => {});
               }}
             />
+            )}
             <SettingsRow
               emoji="👋"
               label="View welcome screen"

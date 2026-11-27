@@ -15,7 +15,12 @@ import { ScreenLoading, EmptyState } from '@/components/screen-state';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchConversation, getProfileSync, sendMessage } from '@/services';
+import {
+  fetchConversation,
+  getProfileSync,
+  sendMessage,
+  subscribeToConversation,
+} from '@/services';
 import { useDecisions } from '@/store/decisions';
 import type { Conversation } from '@/types';
 
@@ -51,6 +56,24 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
+  }, [id]);
+
+  // Messages arriving while this screen is open.
+  //
+  // Appended rather than refetched: a refetch per message would rebuild the
+  // list and lose the scroll position mid-conversation. The id check matters
+  // because the sender's own insert comes back down the same channel, and
+  // handleSend has already re-read the thread.
+  useEffect(() => {
+    const unsubscribe = subscribeToConversation(id, (message) => {
+      setConversation((current) => {
+        if (!current || current.messages.some((m) => m.id === message.id)) {
+          return current;
+        }
+        return { ...current, messages: [...current.messages, message] };
+      });
+    });
+    return unsubscribe;
   }, [id]);
 
   // Title the screen with the other person, and give the conversation its own

@@ -11,7 +11,6 @@
 -- reduce a table-level GRANT.
 
 \set ON_ERROR_STOP off
-grant execute on all functions in schema public to authenticated;
 
 insert into auth.users (id, raw_user_meta_data) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','{"name":"Asha"}'),
@@ -161,3 +160,113 @@ select count(*) as forged_with_inquiry_id_must_be_0 from verification_attempts
 \echo '=== every public table has RLS enabled ==='
 select count(*) as tables_without_rls_must_be_0
 from pg_tables where schemaname='public' and not rowsecurity;
+
+\echo ''
+\echo '=== location is not on profiles at all (0003) ==='
+-- 0002 hid geo with column privileges, which made `select *` on profiles
+-- fail. 0003 moved it to the owner-only table instead, so profiles is
+-- plainly readable again and there is no column to forget about.
+select
+  (select count(*) from information_schema.columns
+    where table_name = 'profiles' and column_name = 'geo')         as on_profiles_must_be_0,
+  (select count(*) from information_schema.columns
+    where table_name = 'profiles_private' and column_name = 'geo') as on_private_must_be_1;
+
+\echo '=== profiles is readable again, including select * (0003) ==='
+select
+  has_table_privilege('authenticated', 'profiles', 'SELECT')          as profiles_select_must_be_true,
+  has_column_privilege('authenticated', 'profiles', 'name', 'SELECT') as name_must_be_true;
+
+\echo '=== and the private table stays owner-only ==='
+select count(*) as private_policies_must_be_3
+from pg_policies where tablename = 'profiles_private';
+
+\echo '=== discover_feed does not return a geo column ==='
+select count(*) filter (where lower(t.name) = 'geo') as geo_cols_must_be_0,
+       count(*)                                      as total_cols
+from (
+  select unnest(proargnames) as name
+  from pg_proc where proname = 'discover_feed'
+) t;
+
+\echo ''
+\echo '=== the photo bucket is private and limited (0005) ==='
+select
+  (select count(*) from storage.buckets where id = 'profile-photos')            as bucket_must_be_1,
+  (select public from storage.buckets where id = 'profile-photos')              as public_must_be_false,
+  (select count(*) from pg_policies
+     where tablename = 'objects' and policyname like 'profile_photos%')         as policies_must_be_4;
+
+\echo '=== a message notifies the other person, and only them (0006) ==='
+-- Two people in a match, the recipient has a device registered.
+insert into auth.users (id) values
+  ('eeee1111-0000-0000-0000-000000000001'),
+  ('eeee1111-0000-0000-0000-000000000002');
+insert into push_tokens (user_id, token, platform)
+  values ('eeee1111-0000-0000-0000-000000000002', 'ExponentPushToken[recipient]', 'ios');
+insert into matches (user_a, user_b) values
+  (least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid),
+   greatest('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid));
+
+insert into messages (match_id, sender_id, body)
+select id, 'eeee1111-0000-0000-0000-000000000001', 'knock knock' from matches
+where user_a = least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid);
+
+select
+  (select count(*) from net._calls)                                   as pushes_must_be_1,
+  (select body -> 0 ->> 'to'   from net._calls limit 1)
+    = 'ExponentPushToken[recipient]'                                  as goes_to_the_recipient,
+  (select body -> 0 ->> 'body' from net._calls limit 1)
+    = 'knock knock'                                                   as carries_the_text,
+  (select body -> 0 -> 'data' ->> 'url' from net._calls limit 1)
+    like '/chat/%'                                                    as deep_links_to_the_chat;
+
+\echo '=== a block stops the notification ==='
+truncate net._calls;
+insert into blocks (blocker_id, blocked_id)
+  values ('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001');
+insert into messages (match_id, sender_id, body)
+select id, 'eeee1111-0000-0000-0000-000000000001', 'again' from matches
+where user_a = least('eeee1111-0000-0000-0000-000000000001'::uuid,'eeee1111-0000-0000-0000-000000000002'::uuid);
+select count(*) as pushes_after_block_must_be_0 from net._calls;
+
+\echo ''
+\echo '=== a client cannot call the grant functions (0007) ==='
+-- Attempted, not inspected. has_function_privilege reports what the catalogue
+-- says; only a call proves what the server does, and the column-grant bug in
+-- 0001 was exactly a case of the two disagreeing.
+insert into auth.users (id) values ('aaaa9999-0000-0000-0000-000000000009');
+set role authenticated;
+\echo '-- authenticated grants itself Premium (expect: permission denied)'
+select grant_premium('aaaa9999-0000-0000-0000-000000000009');
+\echo '-- authenticated awards itself the badge (expect: permission denied)'
+select record_verification('aaaa9999-0000-0000-0000-000000000009', true, 'self');
+reset role;
+select
+  coalesce((select tier::text from entitlements
+             where user_id = 'aaaa9999-0000-0000-0000-000000000009'), 'free')
+    as tier_must_still_be_free,
+  (select verified from profiles
+    where id = 'aaaa9999-0000-0000-0000-000000000009') as verified_must_be_false;
+
+\echo '=== and the grants work when a server calls them ==='
+insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000001');
+select grant_premium('ffff2222-0000-0000-0000-000000000001', now() + interval '30 days', 'apple', 'tx-1');
+select tier as tier_must_be_premium, (expires_at > now()) as not_expired_must_be_true
+  from entitlements where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+select record_verification('ffff2222-0000-0000-0000-000000000001', true, 'test-provider');
+select verified as verified_must_be_true from profiles
+  where id = 'ffff2222-0000-0000-0000-000000000001';
+select count(*) as attempts_must_be_1 from verification_attempts
+  where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+select revoke_premium('ffff2222-0000-0000-0000-000000000001');
+select tier as tier_must_be_free from entitlements
+  where user_id = 'ffff2222-0000-0000-0000-000000000001';
+
+\echo '=== a failed check records the attempt and grants nothing ==='
+insert into auth.users (id) values ('ffff2222-0000-0000-0000-000000000002');
+select record_verification('ffff2222-0000-0000-0000-000000000002', false, 'test-provider');
+select verified as verified_must_be_false from profiles
+  where id = 'ffff2222-0000-0000-0000-000000000002';

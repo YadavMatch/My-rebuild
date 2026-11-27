@@ -72,6 +72,7 @@ export function SwipeDeck({ profiles, onDecision, onOpenProfile, onMessage }: Pr
                 <View style={[styles.behindPhoto, { backgroundColor: theme.photoBackground }]}>
                   <ProfilePhoto
                     emoji={profile.emoji}
+                    photoUrl={profile.photoUrl}
                     name={profile.name}
                     size={88}
                     background="transparent"

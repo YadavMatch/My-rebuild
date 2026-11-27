@@ -1,102 +1,67 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+/**
+ * Changing a profile after it exists.
+ *
+ * Shares its form with setup, so a field you can set once is a field you can
+ * correct. Previously this screen rendered the profile read-only and admitted
+ * in small print that edits were not saved.
+ *
+ * The identity check lives here too, below the form. It is deliberately not
+ * part of `ProfileForm`: setup should not block on a one-time check that runs
+ * in another app and reports back by webhook, and nothing on this screen can
+ * award the badge anyway.
+ */
 
-import { InterestChip, VerifiedBadge } from '@/components/badges';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+
 import { PressableScale } from '@/components/pressable-scale';
-import { ProfilePhoto } from '@/components/profile-photo';
-import { PromptCard } from '@/components/prompt-card';
-import { ScreenLoading } from '@/components/screen-state';
+import { ProfileForm } from '@/components/profile-form';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useVerification } from '@/hooks/use-verification';
-import { fetchCurrentUser } from '@/services';
-import { useDecisions } from '@/store/decisions';
-import type { CurrentUser } from '@/types';
+import { useAuth } from '@/store/auth';
 
 export default function EditProfileScreen() {
   const theme = useTheme();
-  const { state } = useDecisions();
-  const [me, setMe] = useState<CurrentUser | undefined>(undefined);
-  const [bio, setBio] = useState('');
+  const router = useRouter();
+  const { user } = useAuth();
+  const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchCurrentUser()
-      .then((user) => {
-        if (!cancelled) {
-          setMe(user);
-          setBio(user.bio);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (!me) {
-    return <ScreenLoading label="Loading your profile" />;
+  // Without an account there is nothing to write to; the sample profiles are
+  // not anybody's to edit.
+  if (!user) {
+    return (
+      <View style={[styles.empty, { backgroundColor: theme.background }]}>
+        <ThemedText type="subtitle">Sign in to edit your profile</ThemedText>
+        <ThemedText style={{ color: theme.textSecondary, textAlign: 'center' }}>
+          You are browsing sample profiles. Create an account to have one of your own.
+        </ThemedText>
+      </View>
+    );
   }
 
   return (
     <ScrollView
-      style={{ backgroundColor: theme.background }}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}>
-      <View style={styles.identity}>
-        <ProfilePhoto emoji={me.emoji} name={me.name} size={34} style={styles.avatar} />
-        <View style={styles.identityText}>
-          <View style={styles.nameRow}>
-            <ThemedText style={styles.name} accessibilityRole="header">
-              {me.name}, {me.age}
-            </ThemedText>
-            {me.verified ? <VerifiedBadge size={18} /> : null}
-          </View>
-          <ThemedText style={[styles.meta, { color: theme.textSecondary }]}>
-            {me.jobTitle} · {me.location}
-          </ThemedText>
-        </View>
-      </View>
-
-      <VerificationSection />
-
-      <Section title="ABOUT YOU">
-        <TextInput
-          value={bio}
-          onChangeText={setBio}
-          multiline
-          accessibilityLabel="Your bio"
-          style={[styles.bioInput, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-        />
-        <ThemedText style={[styles.hint, { color: theme.textSecondary }]}>
-          {/* Honest about what this does. */}
-          Edits are not saved yet — this needs a backend to write to.
+      {saved ? (
+        <ThemedText
+          type="smallBold"
+          accessibilityLiveRegion="polite"
+          style={[styles.saved, { backgroundColor: theme.verifiedPale, color: theme.verified }]}>
+          Saved
         </ThemedText>
-      </Section>
-
-      <Section title="INTERESTS">
-        <View style={styles.chips}>
-          {me.interests.map((interest) => (
-            <InterestChip key={interest} label={interest} />
-          ))}
-        </View>
-      </Section>
-
-      <Section title="YOUR PROMPTS">
-        {me.prompts.map((prompt) => (
-          <PromptCard key={prompt.id} prompt={prompt} />
-        ))}
-      </Section>
-
-      <Section title="ACTIVITY">
-        <View style={[styles.stats, { backgroundColor: theme.backgroundElement }]}>
-          <Stat label="Liked" value={state.liked.length} />
-          <Stat label="Passed" value={state.passed.length} />
-          <Stat label="Blocked" value={state.blocked.length} />
-        </View>
-      </Section>
+      ) : null}
+      <ProfileForm
+        submitLabel="Save changes"
+        onSaved={() => {
+          setSaved(true);
+          router.back();
+        }}
+      />
+      <VerificationSection />
     </ScrollView>
   );
 }
@@ -114,10 +79,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /**
  * The only way into the identity check.
  *
- * Reads `profiles.verified` from the server rather than the seed profile
- * above: the badge is awarded by the webhook, and the service role is the
- * only thing that may set it, so the server's answer is the only one worth
- * showing.
+ * Reads `profiles.verified` from the server rather than any local copy: the
+ * badge is awarded by the webhook, and the service role is the only thing
+ * that may set it, so the server's answer is the only one worth showing.
  */
 function VerificationSection() {
   const theme = useTheme();
@@ -177,62 +141,23 @@ function VerificationSection() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.stat}>
-      <ThemedText style={styles.statValue}>{value}</ThemedText>
-      <ThemedText style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.four,
-    paddingBottom: Spacing.six,
-  },
-  identity: {
-    flexDirection: 'row',
+  container: { flex: 1 },
+  content: { paddingBottom: Spacing.six, gap: Spacing.four },
+  empty: {
+    flex: 1,
     alignItems: 'center',
-    gap: Spacing.three,
+    justifyContent: 'center',
+    padding: Spacing.four,
+    gap: Spacing.two,
   },
-  avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: Radius.pill,
-  },
-  identityText: { gap: 2, flexShrink: 1 },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one + 2,
-  },
-  name: {
-    fontFamily: Fonts.rounded,
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  meta: {
-    fontFamily: Fonts.rounded,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  section: { gap: Spacing.two },
+  saved: { textAlign: 'center', paddingVertical: Spacing.two },
+  section: { gap: Spacing.two, paddingHorizontal: Spacing.four },
   sectionTitle: {
     fontFamily: Fonts.rounded,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1.2,
-  },
-  bioInput: {
-    minHeight: 100,
-    borderRadius: Radius.lg,
-    padding: Spacing.three,
-    fontFamily: Fonts.rounded,
-    fontSize: 17,
-    lineHeight: 24,
   },
   hint: {
     fontFamily: Fonts.rounded,
@@ -256,26 +181,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonLabel: { fontFamily: Fonts.rounded, fontSize: 16 },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  stats: {
-    flexDirection: 'row',
-    borderRadius: Radius.lg,
-    padding: Spacing.three,
-  },
-  stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: {
-    fontFamily: Fonts.rounded,
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontFamily: Fonts.rounded,
-    fontSize: 14,
-    fontWeight: '600',
-  },
 });
