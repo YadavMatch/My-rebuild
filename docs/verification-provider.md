@@ -406,11 +406,14 @@ something this document can do for you. It is worth saying plainly: this was
 the compliance weight that constraint 1 originally existed to avoid, and the
 amendment accepts it on purpose.
 
-India-domiciled alternatives exist — HyperVerge, IDfy, Signzy — and **none of
-them were evaluated.** They are named here so the option is not forgotten,
-not as a recommendation. If on-shore processing turns out to be a
-requirement rather than a preference, that research has to happen before any
-Persona integration work, not after.
+India-domiciled alternatives exist — HyperVerge, IDfy, Signzy — and they have
+now been looked at, along with two more providers, in *The alternatives,
+evaluated* below. The short version: **nothing found so far solves this.** The
+two providers with usable public documentation both process outside India by
+default, and the three Indian ones publish too little to evaluate without a
+sales call — one of them contradicting its own residency claim in its own
+privacy policy. On-shore processing is still an open requirement, not a
+solved one.
 
 **4. Persona's own consent text contradicts this app's promise.** *Found on
 27 November by reading the first screen of the live flow, not the docs.*
@@ -531,6 +534,160 @@ functions read are listed in
 
 ---
 
+## The alternatives, evaluated
+
+Researched 27 November 2026, in answer to a direct question: *apart from
+Persona, what else is there?* Everything below was read off the providers'
+own pricing pages and developer docs on that date. It is what they claim about
+themselves, not what anyone has verified by integrating.
+
+Why it was worth doing: Persona's blocker is commercial, not technical — the
+*Approve Inquiry* step it needs is marked unavailable on the Startup Program
+(open item 5). If the account is on that plan, this list is the fallback.
+
+Judged against the same four constraints at the top of this document, with
+constraint 2 — **deletion we can call per verification** — doing most of the
+deciding, because that is what eliminated Veriff.
+
+### Didit — the only one that matches Persona on both decisive constraints
+
+And it is dramatically cheaper. A full check (ID document, passive liveness,
+1:1 face match, device and IP) is **$0.33 per finished session**, broken out
+as $0.15 + $0.10 + $0.05 + $0.03. Active liveness adds $0.15. The Free plan is
+$0/month with $10 of credit a month on a work-email signup — roughly thirty
+full checks — and the sandbox is free on every plan, 500 test sessions per 24
+hours. Growth is $99/month for 4% off, Scale $299/month for 10%.
+
+Constraint 2, met properly: `DELETE /v3/session/{session_id}/delete/` removes
+"all stored files (document images, videos, portraits, selfies, POA documents,
+extra uploads...)", is permanent with no restore endpoint, needs only a
+`delete:sessions` privilege, and is **not plan-gated**. There is a bulk form
+at `POST /v3/sessions/delete/`. No deletion webhook fires, and credits are not
+refunded. (A write rate limit of 300 requests a minute per API key was
+reported from their docs but not quoted verbatim — confirm it before relying
+on the number, though at one deletion per verification it is far above our
+throughput either way.) Default retention is plan-tiered: one year on Free,
+five on Growth, ten on Scale, configurable from one month.
+
+Constraints 3 and 4, met: webhooks are HMAC-SHA256 with `X-Signature-V2`, a
+`X-Timestamp` replay window of 300 seconds, up to two retries on failure, and
+a payload carrying `"environment": "live" | "sandbox"` — so sandbox and live
+are separated by application, which is the trap that cost a day on Persona.
+Deliveries come from a single static IP. The hosted flow is `POST /v3/session/`
+returning a URL: no native SDK, so CNG survives.
+
+**Aadhaar, which Persona does not do at all.** Didit lists India under
+non-document lookups, source "UIDAI (Aadhaar)", $0.42 per answered attempt,
+consent regime "Aadhaar consent", taking full name, date of birth, a 12-digit
+national ID number and PAN. The catch is in their own sentence: *"This source
+returns data only, so there is no portrait to face-match against."* So it
+verifies a number against UIDAI, it does not prove the person holding the
+phone is that number's owner. It pairs with a document check, it does not
+replace one. Availability is set per workspace, so being priced is not being
+switched on.
+
+Indian **documents**: their supported-documents table marks India supported
+for ID Card, Passport, Driver License, Residence Permit and Health Insurance.
+PAN and voter ID are not document types there — PAN appears only as a lookup
+field. That is narrower than Persona's observed set of five, which included
+PAN and voter ID.
+
+**Where it fails us: data location.** The default is "the European Union
+(Ireland)". Australia, Mexico, the UAE and the US are listed as coming soon,
+and in-country processing is Enterprise-only. **India is not a listed
+location.** So Didit does not solve open question 3 — it moves the
+cross-border transfer from the US to the EU, which is a different transfer,
+not fewer of them.
+
+**Unknown, and it matters:** nothing on any page read says which countries a
+*business* may sign up or be billed from. That is exactly the question that
+disqualified Stripe Identity, and it is unanswered here. Pricing is in USD, no
+legal entity is named, and the only location given is "San Francisco, USA ·
+Headquarters". Their own pages also disagree with each other on document count
+(4,000+ versus 14,000+), country count (220+, 230, 237), and the price of a
+standalone ID check ($0.15 versus $0.20) — which is a reason to confirm
+anything load-bearing in writing rather than from the marketing site.
+
+### Sumsub — the cleanest Aadhaar story, and no deletion endpoint
+
+$1.35 per verification on Basic against a $149 monthly minimum, or $1.85 on
+Compliance against $299. Self-serve signup, a 14-day trial with 50 free
+checks, and "you will be charged for successful verifications only". There is
+a non-SDK path ("unilinks").
+
+It is the only provider found with **documented Aadhaar verification through
+DigiLocker**: `ind_gov_aadhaar_digi`, with `"confirmationType": "oAuth"`,
+returning a masked Aadhaar number and PAN in the `tin` field where available.
+That is the mechanism the DigiLocker section above argues is categorically
+better than photographing a document, because the data comes from the issuing
+source — and here it is, already built, instead of being an integration we
+would run ourselves as a registered Requester.
+
+**It fails constraint 2.** No endpoint that deletes an applicant's images and
+PII appears in its API index. What exists is "Reset applicant profile",
+"Deactivate applicant profile", "Mark image as inactive" and "Restore image" —
+and an image that can be *restored* has not been deleted. No retention period
+is published. Until Sumsub can show a real erasure call, the app's promise
+that the images are discarded cannot be made on top of it. This is the same
+ground Veriff was rejected on, and it is not a smaller problem for being
+undocumented rather than capped.
+
+Two further gaps: its Local Data Processing page lists v2 regions as the USA,
+the UAE and Singapore, and **does not name India**; and its webhook
+documentation describes delivery and retries but no signature header or
+algorithm, which constraint 3 requires. Both are "ask them", not "no".
+
+### HyperVerge, IDfy, Signzy — the on-shore candidates, and none is evaluable
+
+These are the three that could, in principle, answer open question 3 by
+keeping identity documents in India. All three are sales-led, and that is the
+finding: **not one publishes a per-check price, and not one has public API
+documentation that can be read without an account.** No endpoint specs, no
+webhook signing scheme, no deletion API, no retention policy. A decision
+record cannot be written from a demo-request form.
+
+What each does claim:
+
+| | Aadhaar | DigiLocker | Price | Readable docs |
+| --- | --- | --- | --- | --- |
+| **HyperVerge** | eSign only — that is signing, not verification | not mentioned | volume tiers, no numbers | none linked |
+| **IDfy** | "Aadhaar (masked/verified)", "Aadhaar XML", "Aadhaar Vault" | claimed | demo only; API Central has a no-card trial | sign-in wall |
+| **Signzy** | eSign only | not mentioned | contact sales | landing page only |
+
+IDfy is the most promising of the three on paper — Aadhaar XML is the offline
+mechanism, and it claims DigiLocker — but "masked/verified" is doing a lot of
+work in one phrase and nothing explains which method actually runs.
+
+**Signzy needs flagging specifically.** Its India marketplace page lists "Data
+residency within India" as a differentiator. Its own privacy policy, for
+*Signzy Technologies & Services Inc.* and last updated 20 February 2025, says
+Signzy "primarily processes data within the United States" and that personal
+information may be stored "in the United States of America, India, and other
+jurisdictions". Those two statements cannot both be the whole truth. If
+on-shore processing is the reason you are talking to them, get it in the
+contract, not from the marketing page — this is the one claim in this entire
+document that a provider appears to contradict about itself.
+
+### What this changes
+
+**Nothing about the decision, today.** Persona stays, because the integration
+is built, the flow has been driven end to end in sandbox, and the only thing
+standing between it and a working badge is a plan upgrade or a human click.
+
+**What it gives you is a priced fallback.** If the account turns out to be on
+the Startup Program and an upgrade is not worth it, Didit is the first place
+to look: it meets constraints 2, 3 and 4 the way Persona does, at a quarter of
+the cost of Sumsub and with a free tier large enough to finish testing on.
+Confirm three things first — that an Indian company can be billed, that its
+Indian document coverage is wide enough without PAN or voter ID as documents,
+and that the EU default is acceptable, because it will not be India.
+
+**And it closes one false hope.** Switching providers does not fix open
+question 3. Of the five examined, the only ones that might keep identity
+documents in India are the three that will not tell you how they work.
+
+---
+
 ## What would reverse this
 
 - The camera cannot be made to work in the system browser. That would be
@@ -538,8 +695,15 @@ functions read are listed in
   it is the one thing the sandbox run still has to show. There is no WebView
   fallback to drop to, since Persona does not support one with React Native,
   so the native SDK and its prebuild would be the only way left.
-- On-shore processing becomes a hard requirement. Then the Indian providers
-  above need evaluating and this document is obsolete.
+- On-shore processing becomes a hard requirement. Then it is HyperVerge, IDfy
+  or Signzy, none of which can be evaluated without a sales call — see *The
+  alternatives, evaluated*. Note that neither Persona, Didit nor Sumsub can be
+  made to satisfy this, so it is a provider change and not a configuration
+  one.
+- The Persona account turns out to be on the Startup Program and an upgrade is
+  refused. Then open item 5 is fatal to this design and **Didit** is the
+  fallback, at $0.33 against Sumsub's $1.35, meeting the deletion, webhook and
+  no-native-SDK constraints the same way Persona does.
 - Persona's pricing turns out to be enterprise-only with no self-serve tier,
   which would make step 4a's "~1 hour, usage-priced" estimate wrong and put
   Veriff's $0.80 self-serve tier back in contention — accepting that its
@@ -586,3 +750,29 @@ Read 27 November 2026, for *Indian documents, and the Aadhaar question*:
 - caniuse: [getUserMedia support data](https://github.com/Fyrd/caniuse/blob/main/features-json/stream.json),
   for the note that `getUserMedia` returned no video devices in `WKWebView`
   before iOS 14.3
+
+Read 27 November 2026, for *The alternatives, evaluated*. Every claim in that
+section is the provider's own, read on this date; pricing and coverage pages
+move, so re-check before acting on a number.
+
+- Didit: [pricing](https://didit.me/pricing) ·
+  [ID verification pricing](https://didit.me/pricing/id-verification/) ·
+  [supported documents](https://docs.didit.me/core-technology/id-verification/supported-documents-id-verification) ·
+  [non-document lookup, incl. India/UIDAI](https://docs.didit.me/core-technology/id-verification/non-doc-lookup) ·
+  [delete a session](https://docs.didit.me/sessions-api/delete-session) ·
+  [data retention and location](https://docs.didit.me/console/data-retention) ·
+  [webhooks](https://docs.didit.me/integration/webhooks)
+- Sumsub: [pricing](https://sumsub.com/pricing/) ·
+  [India non-doc verification](https://docs.sumsub.com/reference/india.md) ·
+  [local data processing](https://docs.sumsub.com/docs/local-data-processing.md) ·
+  [webhooks](https://docs.sumsub.com/docs/webhooks.md) ·
+  [rate limits](https://docs.sumsub.com/reference/rate-limits.md)
+- HyperVerge: [home](https://hyperverge.co/) ·
+  [pricing](https://hyperverge.co/pricing/)
+- IDfy: [home](https://www.idfy.com/) ·
+  [identity verification and video KYC](https://www.idfy.com/use-cases/onboarding/identity-verification-&-video-kyc/) ·
+  [API Central](https://apicentral.idfy.com/)
+- Signzy: [home](https://signzy.com/) ·
+  [India API marketplace](https://signzy.com/india-api-marketplace) ·
+  [privacy policy](https://signzy.com/privacy-policy), which is where the
+  residency contradiction is

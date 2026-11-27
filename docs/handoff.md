@@ -23,7 +23,7 @@ major, then read the matching versioned docs.
 
 ## The state of the database
 
-Migrations `0001`–`0015` are in `main`.
+Migrations `0001`–`0016` are in `main`.
 
 | | |
 | --- | --- |
@@ -38,20 +38,30 @@ Migrations `0001`–`0015` are in `main`.
 | `0013` | advisory lock on the like cap |
 | `0014` | message rate limits |
 | `0015` | the moderation queue |
+| `0016` | a fabricated date of birth no longer stands in for an 18+ declaration |
 
 ### Which of these are applied to the live project
 
-**Unknown past `0010`, and you must check rather than assume.** As of this
+**Unknown past `0008`, and you must check rather than assume.** As of this
 session's last observation, the live project (`gsogrvpstliezlurjsvf`) had
 `0001`–`0008` applied, plus whatever the owner has run since.
 
-Run `supabase/tests/verify_on_supabase.sql` in the SQL editor. It reports 24
-checks covering `0001`–`0010`. Checks 1 and 15 are expected to fail locally
-but should pass on the live project.
+Run `supabase/tests/verify_on_supabase.sql` in the SQL editor. It reports 27
+checks covering `0001`–`0010` and `0016`. Checks 1 and 15 are expected to fail
+locally but should pass on the live project.
 
-Scripts were prepared for the owner to paste — preflight, the realtime fix,
-`0009`+`0010`, and hiding the placeholder profiles. `0011`–`0015` need the
-same treatment and had not been written when this session ended.
+**The paste-ready scripts are in [`docs/sql-editor/`](sql-editor/)**, with
+their running order and what each one changes in that directory's README.
+Parts 1–4 take the project to `0010`; files A→B→C→D take it from `0011` to
+`0016`. All nine were tested end to end against real PostGIS on a database
+seeded with the live project's own state, twice for idempotency — 27 of 27
+checks PASS. Read file A's impact counts before running B and C: two steps
+cannot be undone.
+
+Two traps that the testing found, worth knowing if you write more of these:
+the Supabase SQL Editor renders **only the last statement's result**, so a
+read-only report has to be one statement; and `\echo` is a *psql*
+meta-command that fails there, however well it works in the test harness.
 
 ---
 
@@ -96,11 +106,16 @@ scored 33/34 when last run. Before you run it:
 
 - [#13](https://github.com/YadavMatch/My-rebuild/issues/13) — part 2 is done
   (`0010`); part 1, hiding the ~78 existing placeholder profiles, needs the
-  service role. SQL is in `docs/supabase-setup.md`.
+  service role. Paste `docs/sql-editor/part4-cleanup.sql`. It deletes nobody —
+  it takes them out of the feed and leaves the accounts intact, because some
+  may be real people who abandoned onboarding and could come back.
 - [#20](https://github.com/YadavMatch/My-rebuild/issues/20) — realtime
   messages are not delivered on the live project. The app subscribes
   correctly; `messages` is not in the `supabase_realtime` publication. One
-  statement fixes it. Check 15 of `verify_on_supabase.sql` confirms it.
+  statement fixes it: `docs/sql-editor/part2-realtime.sql`. Check 15 of
+  `verify_on_supabase.sql` confirms it. This was proved to be database-side,
+  not client-side, by showing that a broadcast arrives over the same socket
+  while `postgres_changes` delivers nothing.
 
 ---
 
@@ -126,13 +141,39 @@ plan**.
 So the first question is which plan the account is on. If it is Startup, this
 feature cannot ship as designed and no amount of code changes that.
 
+**There is a priced fallback if that happens.** `docs/verification-provider.md`
+now carries *The alternatives, evaluated* — five providers against the same
+four constraints. The useful one is **Didit**: $0.33 for a full check against
+Sumsub's $1.35, an uncapped per-session delete, signed webhooks that carry
+their own `live`/`sandbox` marker, a hosted flow needing no native SDK, and an
+Aadhaar lookup against UIDAI that Persona does not offer at all. Two things to
+confirm before counting on it — whether an Indian company can be billed (that
+is the question that killed Stripe Identity, and nothing on Didit's site
+answers it), and that its Indian document coverage is wide enough, since PAN
+and voter ID are lookup fields there rather than documents it reads.
+
+What switching does *not* fix is the cross-border problem: Didit defaults to
+the EU and Sumsub names no India region, so a provider change relocates the
+transfer rather than removing it.
+
 Also outstanding there:
 
 - The Sandbox webhook does not exist. Webhooks are **per-environment** and
   fail silently: a completed sandbox inquiry produced zero delivery attempts
-  because the only webhook lived in Production. Subscribe it to
-  `inquiry.approved`, `inquiry.declined`, `inquiry.failed` — **not**
-  `inquiry.completed`.
+  because the only webhook lived in Production. The endpoint is
+
+  ```
+  https://gsogrvpstliezlurjsvf.supabase.co/functions/v1/verification-webhook
+  ```
+
+  which was confirmed live on 27 November — `GET` returns 405, an unsigned
+  `POST` returns 401 `Invalid signature`. Create it in **Sandbox**, subscribe
+  it to `inquiry.approved`, `inquiry.declined`, `inquiry.failed` — **not**
+  `inquiry.completed` — and set `PERSONA_WEBHOOK_SECRET` to that webhook's
+  secret. The handler's responses tell the two failure modes apart: 401 in
+  Persona's delivery log means the wrong secret, 503 means no secret is set,
+  and no delivery attempts at all means the wrong environment. It answering
+  401 rather than 503 today proves a secret *is* set — the Production one.
 - Open item 4 of the decision record: Persona's own consent screen says
   biometric data is kept "for no more than 3 years" and used to "improve
   Persona's platform", while `src/app/edit-profile.tsx` tells the user both
@@ -181,10 +222,16 @@ A privacy check written against it returns no rows and passes vacuously. Use
 **`@example.com` signups are rejected** by the project's Auth settings, so
 test users need another domain. `verify_rls.mjs` uses `@gmail.com`.
 
-**`saveLocation` invents a date of birth** (`1900-01-01`) when no
-`profiles_private` row exists, which satisfies `0010`'s "has a date of birth"
-clamp without the member ever having passed the age gate. Flagged, not fixed.
-Worth tightening.
+**`saveLocation` used to invent a date of birth** (`1900-01-01`) when no
+`profiles_private` row existed, which satisfied `0010`'s "has a date of birth"
+clamp without the member ever having passed the age gate — a profile could go
+into the deck claiming to be 18 with nobody having said so. **Fixed**:
+`saveLocation` no longer sends the column, and `0016` makes it nullable, nulls
+the existing sentinels, adds a check constraint so the next piece of code with
+nothing to put there fails loudly, and hides anyone already discoverable on
+one. The lesson generalises: a `not null` column with no honest value to put
+in it gets a placeholder, and a placeholder satisfies every `is not null`
+gate downstream.
 
 **The Expo token in this environment is expired** — `api.expo.dev` returns
 401 on every path, so `expo install --fix`, `expo-doctor` against the API and
