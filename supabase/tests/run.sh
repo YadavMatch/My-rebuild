@@ -93,6 +93,13 @@ echo "0001_initial_schema.sql applied"
 # without touching this script.
 for later in "$HERE"/../migrations/0[0-9][0-9][0-9]_*.sql; do
   case "$later" in *0001_initial_schema.sql) continue ;; esac
+  # Some migrations cannot survive the stubbing above: replacing st_dwithin
+  # with `true` would not test them, it would hide them. Those carry a marker
+  # and are covered by run_proximity.sh against real PostGIS.
+  if grep -q '^-- requires-postgis:' "$later"; then
+    echo "$(basename "$later") skipped (needs PostGIS; see run_proximity.sh)"
+    continue
+  fi
   name="$(basename "$later" .sql)"
   stub "$later" > "$DIR/$name.sql"
   psql -h "$DIR" -p "$PORT" -U postgres -d nm -v ON_ERROR_STOP=1 -q -f "$DIR/$name.sql"
