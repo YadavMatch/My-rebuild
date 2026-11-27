@@ -158,6 +158,50 @@ export async function updateMyProfile(edit: ProfileEdit): Promise<void> {
   currentUserCache = UNKNOWN_USER;
 }
 
+/**
+ * Whether this member can be shown a proximity feed, and how far they chose
+ * to look.
+ *
+ * Deliberately two booleans and a number rather than the row itself: the
+ * client needs to know whether to prompt for a location, prompt for a radius
+ * or show the deck, and none of those questions need coordinates to answer.
+ *
+ * `radiusM` is null for a member who has never chosen. That is not the same
+ * as a default — rows that predate 0011 are left unset on purpose, so nobody
+ * is handed a range they did not pick.
+ */
+export async function fetchDiscoveryStatus(): Promise<{
+  hasLocation: boolean;
+  radiusM: number | null;
+}> {
+  const { data, error } = await supabase().rpc('discovery_status');
+  if (error) {
+    throw new Error(error.message);
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { has_location: boolean; radius_m: number | null }
+    | undefined;
+  return { hasLocation: row?.has_location ?? false, radiusM: row?.radius_m ?? null };
+}
+
+/**
+ * Saves the chosen range.
+ *
+ * The six supported values are a check constraint on the column, so an
+ * unsupported one is refused by the database rather than by this function.
+ * Validating here as well would only let the two disagree.
+ */
+export async function saveDiscoveryRadius(radiusM: number): Promise<void> {
+  const me = requireUser();
+  const { error } = await supabase()
+    .from('profiles_private')
+    .update({ discovery_radius_m: radiusM })
+    .eq('id', me);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 /** The questions someone can answer, from the catalogue the schema seeds. */
 export async function fetchPromptCatalogue(): Promise<{ id: number; question: string }[]> {
   const { data, error } = await supabase()
@@ -608,10 +652,10 @@ export const supabaseService: DataService = {
     // The exclusions are server-side: discover_feed already drops anyone
     // swiped on or blocked. Filtering again on the client would only let the
     // two disagree.
-    const { data, error } = await supabase().rpc('discover_feed', {
-      max_distance_m: 50000,
-      lim: 30,
-    });
+    // No radius argument any more. 0011 moved it onto the member's row,
+    // because a caller-supplied distance is a locating oracle: vary it, watch
+    // who appears, and you can binary-search how far away somebody is.
+    const { data, error } = await supabase().rpc('discover_feed', { lim: 30 });
     if (error) {
       throw new Error(error.message);
     }

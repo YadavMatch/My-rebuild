@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DiscoveryRangeSection } from '@/components/discovery-range';
 import { SettingsRow, SettingsSection } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { APP_NAME } from '@/constants/app';
@@ -110,6 +111,12 @@ export default function SettingsScreen() {
                 }}
                 last
               />
+            </SettingsSection>
+          ) : null}
+
+          {user ? (
+            <SettingsSection title="DISCOVERY">
+              <DiscoveryRangeSection />
             </SettingsSection>
           ) : null}
 

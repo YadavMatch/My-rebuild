@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -18,10 +19,16 @@ export function EmptyState({
   title,
   body,
   emoji,
+  action,
 }: {
   title: string;
   body: string;
   emoji?: string;
+  /**
+   * One way out of the empty state. Optional because most of them are
+   * genuinely terminal — "nobody is left" is not something a button fixes.
+   */
+  action?: { label: string; onPress: () => void; disabled?: boolean };
 }) {
   const theme = useTheme();
 
@@ -34,11 +41,35 @@ export function EmptyState({
       ) : null}
       <ThemedText style={styles.title}>{title}</ThemedText>
       <ThemedText style={[styles.body, { color: theme.textSecondary }]}>{body}</ThemedText>
+      {action ? (
+        <PressableScale
+          onPress={action.onPress}
+          disabled={action.disabled}
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          accessibilityState={{ disabled: action.disabled }}
+          style={[
+            styles.action,
+            { backgroundColor: action.disabled ? theme.border : theme.accent },
+          ]}>
+          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+            {action.label}
+          </ThemedText>
+        </PressableScale>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  action: {
+    minHeight: 48,
+    paddingHorizontal: Spacing.four,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.two,
+  },
   centred: {
     flex: 1,
     alignItems: 'center',

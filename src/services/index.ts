@@ -12,6 +12,7 @@
  *                             session.
  */
 
+import { DEFAULT_DISCOVERY_RADIUS_M } from '@/lib/discovery';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { seedService } from '@/services/seed';
 import { CURRENT_USER_ID } from '@/services/shared';
@@ -30,6 +31,8 @@ import {
   type ProfileEdit,
   hasStoredLocation as supabaseHasLocation,
   saveLocation as supabaseSaveLocation,
+  fetchDiscoveryStatus as supabaseDiscoveryStatus,
+  saveDiscoveryRadius as supabaseSaveRadius,
   recordAgeConfirmation as supabaseRecordAge,
   currentUserId as supabaseCurrentUserId,
   hasSupabaseSession,
@@ -98,6 +101,32 @@ export async function hasStoredLocation(): Promise<boolean> {
     return supabaseHasLocation();
   }
   return true;
+}
+
+/**
+ * How far this member chose to look, and whether they have a location to look
+ * from.
+ *
+ * On the seed backend there is no account and no server, so it reports a
+ * usable location and the default range: the sample deck carries fixed
+ * proximity strings and should not be gated behind a prompt nobody can
+ * satisfy.
+ */
+export async function fetchDiscoveryStatus(): Promise<{
+  hasLocation: boolean;
+  radiusM: number | null;
+}> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    return supabaseDiscoveryStatus();
+  }
+  return { hasLocation: true, radiusM: DEFAULT_DISCOVERY_RADIUS_M };
+}
+
+/** Saves the chosen range. A no-op on the seed backend. */
+export async function saveDiscoveryRadius(radiusM: number): Promise<void> {
+  if (isSupabaseConfigured && hasSupabaseSession()) {
+    await supabaseSaveRadius(radiusM);
+  }
 }
 
 export { PLACEHOLDER_NAME } from '@/services/supabase-service';
