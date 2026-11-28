@@ -11,6 +11,7 @@ import type { Decision, Profile } from '@/types';
 /** How many cards are rendered behind the top one. */
 const VISIBLE_BEHIND = 2;
 
+
 type Props = {
   /** Cards still to be decided on, top card first. */
   profiles: Profile[];
@@ -179,6 +180,9 @@ const styles = StyleSheet.create({
   behind: {
     borderRadius: Radius.card,
     overflow: 'hidden',
+    // Web-only: these three are react-native-web CSS properties, inert on a
+    // plain View on native. The string form is correct here — Reanimated's
+    // stricter `cubicBezier` object belongs only on Animated components.
     transitionProperty: 'transform',
     transitionDuration: '220ms',
     transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
