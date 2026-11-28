@@ -1,11 +1,20 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { css, cubicBezier } from 'react-native-reanimated';
 
 type Props = PressableProps & {
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
+
+/**
+ * easeOutQuint. Must be the `cubicBezier` object, not the CSS string:
+ * Reanimated's `transitionTimingFunction` accepts a predefined name
+ * ('linear', 'ease-out', …) or a parametrized easing, and a string like
+ * 'cubic-bezier(0.23, 1, 0.32, 1)' is read as a name, so it fails the
+ * lookup at render time instead of being parsed.
+ */
+const EASE_OUT_QUINT = cubicBezier(0.23, 1, 0.32, 1);
 
 /**
  * Press feedback for anything tappable.
@@ -30,12 +39,15 @@ export function PressableScale({ style, children, ...rest }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+// `css.create`, not `StyleSheet.create`: a Reanimated easing object is not
+// assignable to React Native's own `transitionTimingFunction`, which is typed
+// `string | Function`. This is the stylesheet that owns these properties.
+const styles = css.create({
   base: {
     transform: [{ scale: 1 }],
     transitionProperty: 'transform',
     transitionDuration: '120ms',
-    transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+    transitionTimingFunction: EASE_OUT_QUINT,
   },
   pressed: {
     transform: [{ scale: 0.97 }],
